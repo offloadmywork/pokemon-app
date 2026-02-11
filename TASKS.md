@@ -2,19 +2,22 @@
 
 ## Current Sprint: Base44 → Cloudflare Workers Migration
 
+### Completed
+- [x] **TASK-001: Project Setup**
+  - [x] Initialize git repository
+  - [x] Create GitHub repo under offloadmywork
+  - [x] Initial commit with current state
+  - [x] Set up .gitignore
+
 ### In Progress
-- [ ] **TASK-001: Project Setup**
-  - [ ] Initialize git repository
-  - [ ] Create GitHub repo under offloadmywork
-  - [ ] Initial commit with current state
-  - [ ] Set up .gitignore
+- [ ] **TASK-002: Cloudflare Workers Backend Setup**
+  - [x] Create wrangler.toml configuration
+  - [x] Set up Workers database (D1)
+  - [x] Design Pokemon entity schema for D1
+  - [x] Create API routes in Workers
+  - [ ] Test API endpoints locally
 
 ### Planned
-- [ ] **TASK-002: Cloudflare Workers Backend Setup**
-  - [ ] Create wrangler.toml configuration
-  - [ ] Set up Workers database (D1)
-  - [ ] Design Pokemon entity schema for D1
-  - [ ] Create API routes in Workers
 
 - [ ] **TASK-003: Frontend Migration**
   - [ ] Replace Base44 SDK with fetch/Workers client
