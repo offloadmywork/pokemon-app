@@ -1,0 +1,36 @@
+{
+  "name": "Pokemon",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The Pokémon's name"
+    },
+    "type": {
+      "type": "string",
+      "description": "The Pokémon's type (Fire, Water, Grass, Electric, etc.)",
+      "enum": ["Fire", "Water", "Grass", "Electric", "Psychic", "Dragon", "Fairy", "Rock", "Ice", "Flying"],
+      "default": "Fire"
+    },
+    "description": {
+      "type": "string",
+      "description": "Fun description of the Pokémon"
+    },
+    "image_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the Pokémon's image"
+    },
+    "rarity": {
+      "type": "string",
+      "description": "How rare the Pokémon is",
+      "enum": ["Common", "Uncommon", "Rare", "Epic", "Legendary"],
+      "default": "Common"
+    },
+    "power_level": {
+      "type": "number",
+      "description": "The Pokémon's power level (1-100)"
+    }
+  },
+  "required": ["name", "type", "description", "image_url", "rarity", "power_level"]
+}
