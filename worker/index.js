@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const app = new Hono();
 
 // Enable CORS
-app.use('/*', cors());
+app.use('/api/*', cors());
 
 // Get all Pokemon
 app.get('/api/pokemon', async (c) => {
@@ -170,6 +170,15 @@ app.delete('/api/caught/:id', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
+});
+
+// Serve static assets for non-API routes
+app.all('*', async (c) => {
+  const asset = c.env.ASSETS;
+  if (asset) {
+    return asset.fetch(c.req.raw);
+  }
+  return c.notFound();
 });
 
 export default app;

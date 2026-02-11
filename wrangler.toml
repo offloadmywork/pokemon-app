@@ -8,6 +8,7 @@ binding = "DB"
 database_name = "pokemon-db"
 database_id = "83852d2f-67f7-4362-aebd-50b9077f5f74"
 
-# Assets for frontend
-[site]
-bucket = "./dist"
+# Static assets (served automatically)
+[assets]
+directory = "./dist"
+binding = "ASSETS"

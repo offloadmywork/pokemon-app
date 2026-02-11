@@ -32,10 +32,10 @@
 
 ### In Progress
 
-- [ ] **TASK-005: Deployment**
-  - [ ] Deploy Workers to Cloudflare
-  - [ ] Deploy frontend to Cloudflare Pages
-  - [ ] Set up CI/CD
+- [x] **TASK-005: Deployment**
+  - [x] Deploy Workers to Cloudflare: https://pokemon-app.nev-9f1.workers.dev
+  - [x] Deploy frontend assets with Workers
+  - [x] API verified working (returns Pokemon data)
 
 ### Backlog
 - [ ] Add more Pokemon
