@@ -37,6 +37,23 @@
   - [x] Deploy frontend assets with Workers
   - [x] API verified working (returns Pokemon data)
 
+### Active Tasks (CEO Priority Order)
+
+- [ ] **TASK-006: Starter Pokemon System** [P0 - Critical]
+  - New users start with 3 beginner Pokemon
+  - Ensure users can always catch (team can't be empty)
+  - Auto-initialize on first visit if no Pokemon owned
+
+- [ ] **TASK-007: Base44 Data Migration** [P1 - High]
+  - Export Pokemon from Base44 database
+  - Import to Cloudflare D1
+  - Preserve existing user collections
+
+- [ ] **TASK-008: Pokemon Creator Feature** [P2 - Medium]
+  - In-app generation interface
+  - AI-powered image generation integration
+  - Custom name, type, power level selection
+
 ### Backlog
 - [ ] Add more Pokemon
 - [ ] Improve battle animations

@@ -66,6 +66,14 @@ class PokemonAPI {
       method: 'DELETE',
     });
   }
+
+  // ===== STARTER POKEMON =====
+  async claimStarters() {
+    return this.request('/api/starter/claim', {
+      method: 'POST',
+    });
+  }
+  // =========================
 }
 
 export const pokemonAPI = new PokemonAPI();

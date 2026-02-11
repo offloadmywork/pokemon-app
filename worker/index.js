@@ -5,6 +5,34 @@ import { v4 as uuidv4 } from 'uuid';
 
 const app = new Hono();
 
+// Starter Pokemon data (for new users)
+const STARTER_POKEMON = [
+  {
+    name: "Flametail Jr",
+    type: "Fire",
+    description: "A small but fiery fox pup. Eager to learn and grow! 🔥🦊",
+    image_url: "https://api.dicebear.com/7.x/bottts/svg?seed=flametail-jr&backgroundColor=red",
+    rarity: "Common",
+    power_level: 25
+  },
+  {
+    name: "Ripplefin",
+    type: "Water",
+    description: "A playful water sprite. Always splashing and exploring! 💧✨",
+    image_url: "https://api.dicebear.com/7.x/bottts/svg?seed=ripplefin&backgroundColor=blue",
+    rarity: "Common",
+    power_level: 25
+  },
+  {
+    name: "Leaflet",
+    type: "Grass",
+    description: "A curious little sprout. Loves sunlight and adventures! 🌱☀️",
+    image_url: "https://api.dicebear.com/7.x/bottts/svg?seed=leaflet&backgroundColor=green",
+    rarity: "Common",
+    power_level: 25
+  }
+];
+
 // Enable CORS
 app.use('/api/*', cors());
 
@@ -14,7 +42,6 @@ app.get('/api/pokemon', async (c) => {
     const { results } = await c.env.DB.prepare(
       'SELECT * FROM pokemon ORDER BY created_at DESC'
     ).all();
-    
     return c.json(results);
   } catch (error) {
     return c.json({ error: error.message }, 500);
@@ -73,7 +100,7 @@ app.post('/api/pokemon', async (c) => {
     const id = uuidv4();
     
     await c.env.DB.prepare(
-      `INSERT INTO pokemon (id, name, type, description, image_url, rarity, power_level)
+      `INSERT INTO pokemon (id, name, type, description, image_url, rarity, power_level) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
@@ -95,17 +122,8 @@ app.post('/api/pokemon', async (c) => {
 app.get('/api/caught', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
-      SELECT 
-        c.id,
-        c.pokemon_id,
-        c.caught_date,
-        c.nickname,
-        p.name,
-        p.type,
-        p.description,
-        p.image_url,
-        p.rarity,
-        p.power_level
+      SELECT c.id, c.pokemon_id, c.caught_date, c.nickname, 
+             p.name, p.type, p.description, p.image_url, p.rarity, p.power_level
       FROM caught_pokemon c
       JOIN pokemon p ON c.pokemon_id = p.id
       ORDER BY c.caught_date DESC
@@ -124,7 +142,7 @@ app.post('/api/caught', async (c) => {
     const id = uuidv4();
     
     await c.env.DB.prepare(
-      `INSERT INTO caught_pokemon (id, pokemon_id, nickname)
+      `INSERT INTO caught_pokemon (id, pokemon_id, nickname) 
        VALUES (?, ?, ?)`
     ).bind(
       id,
@@ -137,6 +155,75 @@ app.post('/api/caught', async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+
+// ===== STARTER POKEMON ENDPOINT =====
+// Claim starter Pokemon (for new users)
+app.post('/api/starter/claim', async (c) => {
+  try {
+    // Check if user already has Pokemon
+    const { results: existing } = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM caught_pokemon'
+    ).all();
+    
+    if (existing[0].count > 0) {
+      return c.json({ error: 'You already have Pokemon!' }, 400);
+    }
+    
+    // Insert starter Pokemon if they don't exist
+    const claimedPokemon = [];
+    
+    for (const starter of STARTER_POKEMON) {
+      // Check if this starter already exists in DB
+      let { results: existingStarter } = await c.env.DB.prepare(
+        'SELECT id FROM pokemon WHERE name = ?'
+      ).bind(starter.name).all();
+      
+      let pokemonId;
+      
+      if (existingStarter.length > 0) {
+        pokemonId = existingStarter[0].id;
+      } else {
+        // Create the starter Pokemon
+        pokemonId = uuidv4();
+        await c.env.DB.prepare(
+          `INSERT INTO pokemon (id, name, type, description, image_url, rarity, power_level) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          pokemonId,
+          starter.name,
+          starter.type,
+          starter.description,
+          starter.image_url,
+          starter.rarity,
+          starter.power_level
+        ).run();
+      }
+      
+      // Add to user's collection
+      const caughtId = uuidv4();
+      await c.env.DB.prepare(
+        `INSERT INTO caught_pokemon (id, pokemon_id, caught_date) 
+         VALUES (?, ?, datetime('now'))`
+      ).bind(caughtId, pokemonId).run();
+      
+      claimedPokemon.push({
+        caught_id: caughtId,
+        pokemon_id: pokemonId,
+        ...starter
+      });
+    }
+    
+    return c.json({
+      success: true,
+      message: 'Welcome to the world of Pokemon! You received 3 starter Pokemon!',
+      starters: claimedPokemon
+    }, 201);
+    
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================================
 
 // Update a caught Pokemon (for nicknames)
 app.patch('/api/caught/:id', async (c) => {
