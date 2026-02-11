@@ -1,6 +1,0 @@
-{
-  "name": "seed-pokemons",
-  "description": "Seeds the database with fun made-up Pokémons",
-  "entry": "index.ts",
-  "public": true
-}
