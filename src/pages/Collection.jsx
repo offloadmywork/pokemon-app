@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { pokemonAPI } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPokemonImage, typeEmojis, rarityConfig } from "@/game/constants";
 import { getMaxHP } from "@/game/battle";
 import { loadTeam, saveTeam, healTeam, addToTeam, removeFromTeam, isOnTeam, MAX_TEAM_SIZE } from "@/game/team";
-
-const Pokemon = base44.entities.Pokemon;
-const CaughtPokemon = base44.entities.CaughtPokemon;
 
 const ITEMS_PER_PAGE = 12;
 
@@ -27,7 +24,7 @@ export default function Collection({ onNavigate }) {
   useEffect(() => {
     (async () => {
       try {
-        const caughtList = await CaughtPokemon.list();
+        const caughtList = await pokemonAPI.getCaughtPokemon();
         setAllCaught(caughtList);
       } catch (err) {
         console.error("Failed to fetch collection:", err);
@@ -57,7 +54,7 @@ export default function Collection({ onNavigate }) {
       }
       // Fetch with error handling
       try {
-        const pokemon = await Pokemon.get(caught.pokemon_id);
+        const pokemon = await pokemonAPI.getPokemon(caught.pokemon_id);
         pokemonCache.current.set(caught.pokemon_id, pokemon);
         results.push({ ...caught, pokemon });
       } catch (err) {
@@ -84,7 +81,7 @@ export default function Collection({ onNavigate }) {
   };
 
   const saveNickname = async (caughtId) => {
-    await CaughtPokemon.update(caughtId, { nickname: nickname.trim() });
+    await pokemonAPI.updateCaughtPokemon(caughtId, { nickname: nickname.trim() });
     setEditingId(null);
     // Update local state instead of re-fetching everything
     setPagePokemons(prev =>
@@ -95,7 +92,7 @@ export default function Collection({ onNavigate }) {
 
   const releasePokemon = async (caughtId, pokemonId) => {
     if (confirm("Are you sure you want to release this Pokémon? 🥺")) {
-      await CaughtPokemon.delete(caughtId);
+      await pokemonAPI.releasePokemon(caughtId);
       // Also remove from team if on team
       if (isOnTeam(pokemonId)) {
         const newTeam = removeFromTeam(pokemonId);

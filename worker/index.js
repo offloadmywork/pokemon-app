@@ -39,6 +39,33 @@ app.get('/api/pokemon/:id', async (c) => {
   }
 });
 
+// Get a random Pokemon (optionally filtered by rarity)
+app.get('/api/pokemon/random/get', async (c) => {
+  try {
+    const rarity = c.req.query('rarity');
+    
+    let query = 'SELECT * FROM pokemon';
+    const params = [];
+    
+    if (rarity) {
+      query += ' WHERE rarity = ?';
+      params.push(rarity);
+    }
+    
+    query += ' ORDER BY RANDOM() LIMIT 1';
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all();
+    
+    if (results.length === 0) {
+      return c.json({ error: 'No Pokemon found' }, 404);
+    }
+    
+    return c.json(results[0]);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Create a new Pokemon
 app.post('/api/pokemon', async (c) => {
   try {
@@ -106,6 +133,25 @@ app.post('/api/caught', async (c) => {
     ).run();
     
     return c.json({ id, ...data }, 201);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Update a caught Pokemon (for nicknames)
+app.patch('/api/caught/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    
+    await c.env.DB.prepare(
+      'UPDATE caught_pokemon SET nickname = ? WHERE id = ?'
+    ).bind(
+      data.nickname || null,
+      id
+    ).run();
+    
+    return c.json({ success: true });
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }

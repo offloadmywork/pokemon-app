@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { pokemonAPI } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import DPad from "@/components/DPad";
 import BattleScreen from "@/components/BattleScreen";
@@ -12,9 +12,6 @@ import {
   loadProgress, saveProgress,
   getPokemonImage, typeEmojis, rarityConfig,
 } from "@/game/constants";
-
-const Pokemon = base44.entities.Pokemon;
-const CaughtPokemon = base44.entities.CaughtPokemon;
 
 // ═══════════════════════════════════════════
 // TILE SIZE & VIEWPORT
@@ -79,7 +76,7 @@ export default function Browse({ onNavigate }) {
   useEffect(() => {
     (async () => {
       try {
-        const caughtList = await CaughtPokemon.list();
+        const caughtList = await pokemonAPI.getCaughtPokemon();
         setCaughtIds(new Set(caughtList.map((c) => c.pokemon_id)));
         const today = new Date().toISOString().slice(0, 10);
         setCaughtToday(caughtList.filter(c => c.caught_date && c.caught_date.slice(0, 10) === today).length);
@@ -95,30 +92,20 @@ export default function Browse({ onNavigate }) {
   // ═══════════════════════════════════════════
   const fetchRandomPokemon = useCallback(async () => {
     const selectedRarity = rollRarity(level);
-    let attempts = 0;
-    while (attempts < 8) {
-      try {
-        const maxSkip = Math.max(1, Math.floor(TOTAL_POKEMON * 0.2));
-        const skip = Math.floor(Math.random() * maxSkip);
-        const data = await Pokemon.filter({ rarity: selectedRarity }, null, 1, skip);
-        if (data && data.length > 0) return data[0];
-        if (skip > 0) {
-          const data2 = await Pokemon.filter({ rarity: selectedRarity }, null, 1, 0);
-          if (data2 && data2.length > 0) return data2[0];
-        }
-      } catch (err) {
-        console.error("Fetch attempt failed:", err);
-      }
-      attempts++;
-    }
     try {
-      const skip = Math.floor(Math.random() * 50);
-      const data = await Pokemon.list(null, 1, skip);
-      if (data && data.length > 0) return data[0];
+      const pokemon = await pokemonAPI.getRandomPokemon(selectedRarity);
+      return pokemon;
     } catch (err) {
-      console.error("Fallback fetch failed:", err);
+      console.error("Failed to fetch random Pokemon:", err);
+      // Fallback to any rarity
+      try {
+        const pokemon = await pokemonAPI.getRandomPokemon();
+        return pokemon;
+      } catch (err2) {
+        console.error("Fallback fetch failed:", err2);
+        return null;
+      }
     }
-    return null;
   }, [level]);
 
   // Player position (combined x,y)
@@ -242,10 +229,7 @@ export default function Browse({ onNavigate }) {
     // Handle catch
     if (result.caught && result.pokemon) {
       try {
-        await CaughtPokemon.create({
-          pokemon_id: result.pokemon.id,
-          caught_date: new Date().toISOString(),
-        });
+        await pokemonAPI.catchPokemon(result.pokemon.id);
         setCaughtIds(prev => new Set([...prev, result.pokemon.id]));
         setCaughtToday(prev => prev + 1);
       } catch (err) {

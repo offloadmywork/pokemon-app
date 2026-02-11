@@ -1,0 +1,71 @@
+// Pokemon App API Client for Cloudflare Workers
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8787' : '';
+
+class PokemonAPI {
+  async request(endpoint, options = {}) {
+    const url = `${API_BASE}${endpoint}`;
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // Pokemon endpoints
+  async getAllPokemon() {
+    return this.request('/api/pokemon');
+  }
+
+  async getPokemon(id) {
+    return this.request(`/api/pokemon/${id}`);
+  }
+
+  async createPokemon(data) {
+    return this.request('/api/pokemon', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getRandomPokemon(rarity = null) {
+    const params = rarity ? `?rarity=${encodeURIComponent(rarity)}` : '';
+    return this.request(`/api/pokemon/random/get${params}`);
+  }
+
+  // Caught Pokemon endpoints
+  async getCaughtPokemon() {
+    return this.request('/api/caught');
+  }
+
+  async catchPokemon(pokemonId, nickname = null) {
+    return this.request('/api/caught', {
+      method: 'POST',
+      body: JSON.stringify({ pokemon_id: pokemonId, nickname }),
+    });
+  }
+
+  async updateCaughtPokemon(caughtId, data) {
+    return this.request(`/api/caught/${caughtId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async releasePokemon(caughtId) {
+    return this.request(`/api/caught/${caughtId}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export const pokemonAPI = new PokemonAPI();
