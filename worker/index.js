@@ -1,57 +1,51 @@
-// Pokemon App API - Cloudflare Workers
-import { Router } from 'itty-router';
+// Pokemon App API - Cloudflare Workers with Hono
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { v4 as uuidv4 } from 'uuid';
 
-const router = Router();
+const app = new Hono();
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
-// Handle OPTIONS requests for CORS
-router.options('*', () => new Response(null, { headers: corsHeaders }));
+// Enable CORS
+app.use('/*', cors());
 
 // Get all Pokemon
-router.get('/api/pokemon', async (request, env) => {
+app.get('/api/pokemon', async (c) => {
   try {
-    const { results } = await env.DB.prepare(
+    const { results } = await c.env.DB.prepare(
       'SELECT * FROM pokemon ORDER BY created_at DESC'
     ).all();
     
-    return jsonResponse(results);
+    return c.json(results);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
 // Get a single Pokemon by ID
-router.get('/api/pokemon/:id', async (request, env) => {
+app.get('/api/pokemon/:id', async (c) => {
   try {
-    const { id } = request.params;
-    const { results } = await env.DB.prepare(
+    const id = c.req.param('id');
+    const { results } = await c.env.DB.prepare(
       'SELECT * FROM pokemon WHERE id = ?'
     ).bind(id).all();
     
     if (results.length === 0) {
-      return jsonResponse({ error: 'Pokemon not found' }, 404);
+      return c.json({ error: 'Pokemon not found' }, 404);
     }
     
-    return jsonResponse(results[0]);
+    return c.json(results[0]);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
 // Create a new Pokemon
-router.post('/api/pokemon', async (request, env) => {
+app.post('/api/pokemon', async (c) => {
   try {
-    const data = await request.json();
+    const data = await c.req.json();
     const id = uuidv4();
     
-    await env.DB.prepare(
+    await c.env.DB.prepare(
       `INSERT INTO pokemon (id, name, type, description, image_url, rarity, power_level)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).bind(
@@ -64,16 +58,16 @@ router.post('/api/pokemon', async (request, env) => {
       data.power_level
     ).run();
     
-    return jsonResponse({ id, ...data }, 201);
+    return c.json({ id, ...data }, 201);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
 // Get all caught Pokemon
-router.get('/api/caught', async (request, env) => {
+app.get('/api/caught', async (c) => {
   try {
-    const { results } = await env.DB.prepare(`
+    const { results } = await c.env.DB.prepare(`
       SELECT 
         c.id,
         c.pokemon_id,
@@ -90,19 +84,19 @@ router.get('/api/caught', async (request, env) => {
       ORDER BY c.caught_date DESC
     `).all();
     
-    return jsonResponse(results);
+    return c.json(results);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
 // Catch a Pokemon
-router.post('/api/caught', async (request, env) => {
+app.post('/api/caught', async (c) => {
   try {
-    const data = await request.json();
+    const data = await c.req.json();
     const id = uuidv4();
     
-    await env.DB.prepare(
+    await c.env.DB.prepare(
       `INSERT INTO caught_pokemon (id, pokemon_id, nickname)
        VALUES (?, ?, ?)`
     ).bind(
@@ -111,42 +105,25 @@ router.post('/api/caught', async (request, env) => {
       data.nickname || null
     ).run();
     
-    return jsonResponse({ id, ...data }, 201);
+    return c.json({ id, ...data }, 201);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
 // Release a caught Pokemon
-router.delete('/api/caught/:id', async (request, env) => {
+app.delete('/api/caught/:id', async (c) => {
   try {
-    const { id } = request.params;
+    const id = c.req.param('id');
     
-    await env.DB.prepare(
+    await c.env.DB.prepare(
       'DELETE FROM caught_pokemon WHERE id = ?'
     ).bind(id).run();
     
-    return jsonResponse({ success: true });
+    return c.json({ success: true });
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return c.json({ error: error.message }, 500);
   }
 });
 
-// 404 handler
-router.all('*', () => jsonResponse({ error: 'Not found' }, 404));
-
-// Helper function for JSON responses
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders,
-    },
-  });
-}
-
-// Worker entry point
-export default {
-  fetch: (request, env, ctx) => router.handle(request, env, ctx),
-};
+export default app;
