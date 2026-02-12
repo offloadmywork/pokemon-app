@@ -20,11 +20,34 @@ export default function Collection({ onNavigate }) {
   const [teamMessage, setTeamMessage] = useState('');
   const pokemonCache = useRef(new Map());                // Cache: pokemon_id → pokemon data
 
+  // Track if we've attempted auto-claim to prevent loops
+  const hasAttemptedAutoClaim = useRef(false);
+
   // Initial load: just get the caught list (lightweight, no images)
+  // Auto-claim starters for new users
   useEffect(() => {
     (async () => {
       try {
         const caughtList = await pokemonAPI.getCaughtPokemon();
+        
+        // Auto-initialize starters for new users (empty collection, first visit)
+        if (caughtList.length === 0 && !hasAttemptedAutoClaim.current) {
+          hasAttemptedAutoClaim.current = true;
+          try {
+            const result = await pokemonAPI.claimStarters();
+            if (result.success) {
+              // Refresh the collection with new starters
+              const updatedList = await pokemonAPI.getCaughtPokemon();
+              setAllCaught(updatedList);
+              setIsLoading(false);
+              return;
+            }
+          } catch (claimErr) {
+            console.error('Auto-claim failed:', claimErr);
+            // Continue to normal flow even if auto-claim fails
+          }
+        }
+        
         setAllCaught(caughtList);
       } catch (err) {
         console.error("Failed to fetch collection:", err);

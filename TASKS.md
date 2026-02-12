@@ -39,10 +39,13 @@
 
 ### Active Tasks (CEO Priority Order)
 
-- [ ] **TASK-006: Starter Pokemon System** [P0 - Critical]
-  - New users start with 3 beginner Pokemon
-  - Ensure users can always catch (team can't be empty)
-  - Auto-initialize on first visit if no Pokemon owned
+- [x] **TASK-006: Starter Pokemon System** [P0 - Critical] ✅ COMPLETED
+  - ✅ Backend: `/api/starter/claim` endpoint in worker/index.js
+  - ✅ Three starter Pokemon defined (Flametail Jr, Ripplefin, Leaflet)
+  - ✅ API client: `claimStarters()` method
+  - ✅ Frontend: Auto-claim on first visit if collection is empty
+  - ✅ Manual claim button as fallback
+  - ✅ 2 tests added for auto-claim (156 total tests passing)
 
 - [x] **TASK-007: Base44 Data Migration** [P1 - High] ✅ COMPLETED
   - ✅ D1 database already seeded with 41 Pokemon

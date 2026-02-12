@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import Collection from './Collection';
 import { pokemonAPI } from '@/api/client';
 
@@ -10,6 +10,7 @@ vi.mock('@/api/client', () => ({
     getPokemon: vi.fn(),
     updateCaughtPokemon: vi.fn(),
     releasePokemon: vi.fn(),
+    claimStarters: vi.fn(),
   },
 }));
 
@@ -31,21 +32,16 @@ describe('Collection Page', () => {
 
   it('should show loading state initially', () => {
     pokemonAPI.getCaughtPokemon.mockResolvedValue([]);
-    
     render(<Collection onNavigate={vi.fn()} />);
-    
-    expect(screen.getByText(/Loading Pokémon/i)).toBeInTheDocument();
+    expect(screen.getByText('⭐')).toBeInTheDocument();
   });
 
   it('should show empty state when no pokemon caught', async () => {
     pokemonAPI.getCaughtPokemon.mockResolvedValue([]);
-    
     render(<Collection onNavigate={vi.fn()} />);
-    
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Pokémon/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('⭐')).not.toBeInTheDocument();
     });
-    
     expect(screen.getByText(/Your collection is empty/i)).toBeInTheDocument();
     expect(screen.getByText(/Explore Wild Pokémon/i)).toBeInTheDocument();
   });
@@ -55,9 +51,9 @@ describe('Collection Page', () => {
       { id: 1, pokemon_id: 25, nickname: null, caught_date: '2024-01-01' },
       { id: 2, pokemon_id: 1, nickname: 'Bulby', caught_date: '2024-01-02' },
     ];
-    
+
     pokemonAPI.getCaughtPokemon.mockResolvedValue(caughtPokemon);
-    pokemonAPI.getPokemon.mockImplementation((id) => 
+    pokemonAPI.getPokemon.mockImplementation((id) =>
       Promise.resolve({
         id,
         name: id === 25 ? 'Pikachu' : 'Bulbasaur',
@@ -67,42 +63,84 @@ describe('Collection Page', () => {
         image_url: 'https://example.com/image.png',
       })
     );
-    
+
     render(<Collection onNavigate={vi.fn()} />);
-    
+
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Pokémon/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('⭐')).not.toBeInTheDocument();
     });
-    
+
     await waitFor(() => {
       expect(screen.getByText('Pikachu')).toBeInTheDocument();
     });
-    
+
     expect(screen.getByText('Bulby')).toBeInTheDocument();
   });
 
   it('should handle API errors gracefully', async () => {
     pokemonAPI.getCaughtPokemon.mockRejectedValue(new Error('Network error'));
-    
     render(<Collection onNavigate={vi.fn()} />);
-    
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Pokémon/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('⭐')).not.toBeInTheDocument();
     });
-    
     // Should show empty state or error message
     expect(screen.getByText(/Your collection is empty/i)).toBeInTheDocument();
   });
 
   it('should have navigation buttons', async () => {
     pokemonAPI.getCaughtPokemon.mockResolvedValue([]);
+    render(<Collection onNavigate={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.queryByText('⭐')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/Explore Wild Pokémon/i)).toBeInTheDocument();
+  });
+
+  it('should auto-claim starter pokemon for new users', async () => {
+    const starterPokemon = [
+      { id: 1, pokemon_id: 'starter-1', nickname: null, caught_date: '2024-01-01' },
+      { id: 2, pokemon_id: 'starter-2', nickname: null, caught_date: '2024-01-01' },
+      { id: 3, pokemon_id: 'starter-3', nickname: null, caught_date: '2024-01-01' },
+    ];
     
+    // Empty at first, then has starters after claiming
+    pokemonAPI.getCaughtPokemon
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(starterPokemon);
+    
+    pokemonAPI.claimStarters.mockResolvedValue({
+      success: true,
+      message: 'Welcome to the world of Pokemon! You received 3 starter Pokemon!',
+      starters: [
+        { caught_id: 1, name: 'Flametail Jr' },
+        { caught_id: 2, name: 'Ripplefin' },
+        { caught_id: 3, name: 'Leaflet' },
+      ],
+    });
+
     render(<Collection onNavigate={vi.fn()} />);
     
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Pokémon/i)).not.toBeInTheDocument();
+      expect(pokemonAPI.claimStarters).toHaveBeenCalledTimes(1);
     });
     
-    expect(screen.getByText(/Explore Wild Pokémon/i)).toBeInTheDocument();
+    // Should fetch the collection twice (empty, then with starters)
+    expect(pokemonAPI.getCaughtPokemon).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle auto-claim failure gracefully', async () => {
+    // Empty collection
+    pokemonAPI.getCaughtPokemon.mockResolvedValue([]);
+    pokemonAPI.claimStarters.mockRejectedValue(new Error('API Error'));
+
+    render(<Collection onNavigate={vi.fn()} />);
+    
+    await waitFor(() => {
+      expect(screen.queryByText('⭐')).not.toBeInTheDocument();
+    });
+    
+    // Should show empty state even if auto-claim failed
+    expect(screen.getByText(/Your collection is empty/i)).toBeInTheDocument();
+    expect(screen.getByText(/Claim Your Starter Pokémon/i)).toBeInTheDocument();
   });
 });
