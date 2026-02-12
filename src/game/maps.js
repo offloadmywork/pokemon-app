@@ -186,7 +186,10 @@ export const MAPS = [
 ];
 
 // Get map for a given level (1-5)
-export const getMap = (level) => MAPS[Math.min(level, 5) - 1];
+export const getMap = (level) => {
+  const index = Math.max(0, Math.min(level, 5) - 1);
+  return MAPS[index];
+};
 
 // Check if a tile is walkable
 export const isWalkable = (tileType) => tileType === 0 || tileType === 1 || tileType === 5 || tileType === 6;

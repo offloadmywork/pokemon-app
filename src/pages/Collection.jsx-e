@@ -262,6 +262,7 @@ export default function Collection({ onNavigate }) {
             <p className="text-4xl text-white font-black mb-6">
               Your collection is empty! 😢 </p> <p className="text-xl text-white/80 mb-4"> Welcome! You need Pokémon to start your adventure! </p> <div className="flex flex-col gap-3 items-center"> <Button onClick={async () => { setIsLoading(true); try { const result = await pokemonAPI.claimStarters(); if (result.success) { const caughtList = await pokemonAPI.getCaughtPokemon(); setAllCaught(caughtList); alert(result.message); } } catch (err) { console.error('Failed to claim starters:', err); alert('Something went wrong! Try again.'); } finally { setIsLoading(false); } }} className="h-16 px-8 text-2xl font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl" > 🎁 Claim Your Starter Pokémon! </Button> <span className="text-white/60 text-sm">or</span> <Button onClick={() => onNavigate('browse')} className="h-12 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-500 text-purple-900 rounded-xl" > 🔍 Explore Wild Pokémon </Button> </div>
             </div>
+          </div>
         ) : (
           <>
             {/* Page loading overlay */}

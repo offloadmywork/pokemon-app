@@ -184,6 +184,10 @@ export const typeEmojis = {
   Ground: "🏔️",
 };
 
+// ═══════════════════════════════════════════ // GAME BALANCE CONSTANTS // ═══════════════════════════════════════════
+export const CRITICAL_CHANCE = 0.1; // 10% chance for critical hits
+export const LEVEL_XP_MULTIPLIER = 1.5; // XP multiplier for level-based scaling
+
 export const rarityConfig = {
   Common: { color: "#9ca3af", glow: "none", label: "Common", stars: 1 },
   Uncommon: { color: "#22c55e", glow: "0 0 15px #22c55e", label: "Uncommon", stars: 2 },
