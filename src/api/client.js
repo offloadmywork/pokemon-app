@@ -74,6 +74,22 @@ class PokemonAPI {
     });
   }
   // =========================
+
+  // ===== POKEMON CREATOR =====
+  async generatePokemon(data) {
+    return this.request('/api/pokemon/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async saveGeneratedPokemon(data) {
+    return this.request('/api/pokemon/generated', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+  // ===========================
 }
 
 export const pokemonAPI = new PokemonAPI();

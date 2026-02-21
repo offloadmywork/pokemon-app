@@ -39,6 +39,23 @@ export default function Collection({ onNavigate }) {
               // Refresh the collection with new starters
               const updatedList = await pokemonAPI.getCaughtPokemon();
               setAllCaught(updatedList);
+              
+              // AUTO-ADD STARTERS TO TEAM so user can battle immediately!
+              if (result.starters && result.starters.length > 0) {
+                const team = result.starters.slice(0, 3).map(starter => ({
+                  pokemon_id: starter.pokemon_id,
+                  name: starter.name,
+                  type: starter.type,
+                  power_level: starter.power_level,
+                  rarity: starter.rarity,
+                  image_url: starter.image_url,
+                  maxHP: 100,
+                  currentHP: 100
+                }));
+                saveTeam(team);
+                setTeam(team);
+              }
+              
               setIsLoading(false);
               return;
             }
@@ -283,8 +300,57 @@ export default function Collection({ onNavigate }) {
         {allCaught.length === 0 ? (
           <div className="text-center py-20 bg-white/20 rounded-3xl backdrop-blur">
             <p className="text-4xl text-white font-black mb-6">
-              Your collection is empty! 😢 </p> <p className="text-xl text-white/80 mb-4"> Welcome! You need Pokémon to start your adventure! </p> <div className="flex flex-col gap-3 items-center"> <Button onClick={async () => { setIsLoading(true); try { const result = await pokemonAPI.claimStarters(); if (result.success) { const caughtList = await pokemonAPI.getCaughtPokemon(); setAllCaught(caughtList); alert(result.message); } } catch (err) { console.error('Failed to claim starters:', err); alert('Something went wrong! Try again.'); } finally { setIsLoading(false); } }} className="h-16 px-8 text-2xl font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl" > 🎁 Claim Your Starter Pokémon! </Button> <span className="text-white/60 text-sm">or</span> <Button onClick={() => onNavigate('browse')} className="h-12 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-500 text-purple-900 rounded-xl" > 🔍 Explore Wild Pokémon </Button> </div>
+              Your collection is empty! 😢
+            </p>
+            <p className="text-xl text-white/80 mb-4">
+              Welcome! You need Pokémon to start your adventure!
+            </p>
+            <div className="flex flex-col gap-3 items-center">
+              <Button
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    const result = await pokemonAPI.claimStarters();
+                    if (result.success) {
+                      const caughtList = await pokemonAPI.getCaughtPokemon();
+                      setAllCaught(caughtList);
+                      // Auto-add starters to team
+                      if (result.starters && result.starters.length > 0) {
+                        const newTeam = result.starters.slice(0, 3).map(starter => ({
+                          pokemon_id: starter.pokemon_id,
+                          name: starter.name,
+                          type: starter.type,
+                          power_level: starter.power_level,
+                          rarity: starter.rarity,
+                          image_url: starter.image_url,
+                          maxHP: 100,
+                          currentHP: 100
+                        }));
+                        saveTeam(newTeam);
+                        setTeam(newTeam);
+                      }
+                      alert(result.message);
+                    }
+                  } catch (err) {
+                    console.error('Failed to claim starters:', err);
+                    alert('Something went wrong! Try again.');
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="h-16 px-8 text-2xl font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl"
+              >
+                🎁 Claim Your Starter Pokémon!
+              </Button>
+              <span className="text-white/60 text-sm">or</span>
+              <Button
+                onClick={() => onNavigate('browse')}
+                className="h-12 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-500 text-purple-900 rounded-xl"
+              >
+                🔍 Explore Wild Pokémon
+              </Button>
             </div>
+          </div>
         ) : (
           <>
             {/* Page loading overlay */}

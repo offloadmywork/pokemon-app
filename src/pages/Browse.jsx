@@ -538,10 +538,10 @@ export default function Browse({ onNavigate }) {
           <div className="relative z-10 text-center px-8 max-w-md">
             <div className="text-7xl mb-4">😰</div>
             <h2 className="text-3xl font-black text-white mb-3">
-              You need Pokémon to battle!
+              No Pokémon on your team!
             </h2>
             <p className="text-lg text-gray-300 mb-6">
-              Visit your collection to pick a team of up to 3 Pokémon!
+              Go to your Collection and add Pokémon to your battle team (up to 3) using the "⚔️ Add to Team!" button.
             </p>
             <div className="flex flex-col gap-3">
               <button
