@@ -263,6 +263,113 @@ app.delete('/api/caught/:id', async (c) => {
   }
 });
 
+// ===== TEAM API - Cross-device persistence =====
+// Get user's battle team
+app.get('/api/team', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM team ORDER BY position ASC'
+    ).all();
+    return c.json(results);
+  } catch (error) {
+    // If table doesn't exist yet, return empty array
+    if (error.message.includes('no such table')) {
+      return c.json([]);
+    }
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Set user's battle team (replaces entire team)
+app.post('/api/team', async (c) => {
+  try {
+    const teamData = await c.req.json();
+    
+    // Clear existing team
+    await c.env.DB.prepare('DELETE FROM team').run();
+    
+    // Insert new team members
+    for (let i = 0; i < teamData.length && i < 3; i++) {
+      const member = teamData[i];
+      const id = uuidv4();
+      
+      await c.env.DB.prepare(
+        `INSERT INTO team (id, pokemon_id, name, type, power_level, rarity, image_url, maxHP, currentHP, position)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        id,
+        member.pokemon_id,
+        member.name,
+        member.type,
+        member.power_level || 0,
+        member.rarity || 'Common',
+        member.image_url || '',
+        member.maxHP || 100,
+        member.currentHP || 100,
+        i
+      ).run();
+    }
+    
+    // Return updated team
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM team ORDER BY position ASC'
+    ).all();
+    
+    return c.json(results);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Heal entire team
+app.patch('/api/team/heal', async (c) => {
+  try {
+    await c.env.DB.prepare(
+      'UPDATE team SET currentHP = maxHP'
+    ).run();
+    
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM team ORDER BY position ASC'
+    ).all();
+    
+    return c.json(results);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Update single team member HP (after battle)
+app.patch('/api/team/:pokemonId', async (c) => {
+  try {
+    const pokemonId = c.req.param('pokemonId');
+    const data = await c.req.json();
+    
+    await c.env.DB.prepare(
+      'UPDATE team SET currentHP = ? WHERE pokemon_id = ?'
+    ).bind(data.currentHP, pokemonId).run();
+    
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Remove from team
+app.delete('/api/team/:pokemonId', async (c) => {
+  try {
+    const pokemonId = c.req.param('pokemonId');
+    
+    await c.env.DB.prepare(
+      'DELETE FROM team WHERE pokemon_id = ?'
+    ).bind(pokemonId).run();
+    
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ================================================
+
 // Serve static assets for non-API routes
 app.all('*', async (c) => {
   const asset = c.env.ASSETS;

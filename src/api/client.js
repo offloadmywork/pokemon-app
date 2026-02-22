@@ -75,6 +75,38 @@ class PokemonAPI {
   }
   // =========================
 
+  // ===== TEAM API =====
+  async getTeam() {
+    return this.request('/api/team');
+  }
+
+  async setTeam(teamData) {
+    return this.request('/api/team', {
+      method: 'POST',
+      body: JSON.stringify(teamData),
+    });
+  }
+
+  async healTeam() {
+    return this.request('/api/team/heal', {
+      method: 'PATCH',
+    });
+  }
+
+  async updateTeamMemberHP(pokemonId, currentHP) {
+    return this.request(`/api/team/${pokemonId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ currentHP }),
+    });
+  }
+
+  async removeFromTeam(pokemonId) {
+    return this.request(`/api/team/${pokemonId}`, {
+      method: 'DELETE',
+    });
+  }
+  // ====================
+
   // ===== POKEMON CREATOR =====
   async generatePokemon(data) {
     return this.request('/api/pokemon/generate', {
