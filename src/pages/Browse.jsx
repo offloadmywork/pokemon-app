@@ -5,11 +5,11 @@ import DPad from "@/components/DPad";
 import BattleScreen from "@/components/BattleScreen";
 import { getMap, isWalkable, isGrass, isHealingSpot } from "@/game/maps";
 import { loadTeam, saveTeam, healTeam, isTeamAlive } from "@/game/team";
+import { loadProgress, saveProgress } from "@/game/progress";
 import {
   CATCH_RATES, TOTAL_POKEMON, STORAGE_KEY, LEVEL_CONFIG,
   XP_REWARDS, RARITY_WEIGHTS, rollRarity,
   getLevelFromXP, getLevelConfig, getNextLevelXP,
-  loadProgress, saveProgress,
   getPokemonImage, typeEmojis, rarityConfig,
 } from "@/game/constants";
 

@@ -75,6 +75,19 @@ class PokemonAPI {
   }
   // =========================
 
+  // ===== PLAYER PROGRESS API =====
+  async getProgress() {
+    return this.request('/api/player/progress');
+  }
+
+  async setProgress(xp, level) {
+    return this.request('/api/player/progress', {
+      method: 'POST',
+      body: JSON.stringify({ xp, level }),
+    });
+  }
+  // ====================
+
   // ===== TEAM API =====
   async getTeam() {
     return this.request('/api/team');

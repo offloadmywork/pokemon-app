@@ -7,6 +7,7 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "pokemon-db"
 database_id = "83852d2f-67f7-4362-aebd-50b9077f5f74"
+migrations_dir = "worker/migrations"
 
 # Static assets (served automatically)
 [assets]

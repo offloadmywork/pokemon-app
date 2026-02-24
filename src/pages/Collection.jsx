@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { getPokemonImage, typeEmojis, rarityConfig } from "@/game/constants";
 import { getMaxHP } from "@/game/battle";
 import { 
-  setTeamApiClient, 
   loadTeam,
   loadTeamAsync, 
   saveTeam,
@@ -18,9 +17,6 @@ import {
 } from "@/game/team";
 
 const ITEMS_PER_PAGE = 12;
-
-// Initialize team API client on module load
-setTeamApiClient(pokemonAPI);
 
 export default function Collection({ onNavigate }) {
   const [allCaught, setAllCaught] = useState([]);       // Full caught list (lightweight)

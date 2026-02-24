@@ -263,6 +263,52 @@ app.delete('/api/caught/:id', async (c) => {
   }
 });
 
+// ===== PLAYER PROGRESS API - Cross-device persistence =====
+// Get player progress (XP, level)
+app.get('/api/player/progress', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT xp, level FROM player_progress WHERE id = 1'
+    ).all();
+    
+    if (results.length === 0) {
+      // Return defaults if no progress exists
+      return c.json({ xp: 0, level: 1 });
+    }
+    
+    return c.json(results[0]);
+  } catch (error) {
+    // If table doesn't exist yet, return defaults
+    if (error.message.includes('no such table')) {
+      return c.json({ xp: 0, level: 1 });
+    }
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Update player progress (XP, level)
+app.post('/api/player/progress', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { xp = 0, level = 1 } = data;
+    
+    // Upsert progress (single row table)
+    await c.env.DB.prepare(
+      `INSERT INTO player_progress (id, xp, level, updated_at) 
+       VALUES (1, ?, ?, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET 
+         xp = excluded.xp, 
+         level = excluded.level,
+         updated_at = datetime('now')`
+    ).bind(xp, level).run();
+    
+    return c.json({ xp, level });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ================================================
+
 // ===== TEAM API - Cross-device persistence =====
 // Get user's battle team
 app.get('/api/team', async (c) => {

@@ -150,6 +150,14 @@ export const getNextLevelXP = (level) => {
   return next ? next.xpRequired : null;
 };
 
+// ═══════════════════════════════════════════
+// DEPRECATED: Use @/game/progress module instead
+// These are kept for backward compatibility only
+// ═══════════════════════════════════════════
+
+/**
+ * @deprecated Use loadProgress from @/game/progress instead
+ */
 export const loadProgress = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -159,6 +167,9 @@ export const loadProgress = () => {
   }
 };
 
+/**
+ * @deprecated Use saveProgress from @/game/progress instead
+ */
 export const saveProgress = (xp, level) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ xp, level }));
 };
