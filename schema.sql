@@ -1,3 +1,10 @@
+-- Users table (for cross-device sync)
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Pokemon table
 CREATE TABLE IF NOT EXISTS pokemon (
   id TEXT PRIMARY KEY,
@@ -14,12 +21,43 @@ CREATE TABLE IF NOT EXISTS pokemon (
 CREATE TABLE IF NOT EXISTS caught_pokemon (
   id TEXT PRIMARY KEY,
   pokemon_id TEXT NOT NULL,
+  user_id TEXT,
   caught_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   nickname TEXT,
-  FOREIGN KEY (pokemon_id) REFERENCES pokemon(id)
+  FOREIGN KEY (pokemon_id) REFERENCES pokemon(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Player progress table
+CREATE TABLE IF NOT EXISTS player_progress (
+  id INTEGER PRIMARY KEY,
+  user_id TEXT,
+  xp INTEGER NOT NULL DEFAULT 0,
+  level INTEGER NOT NULL DEFAULT 1,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Team table
+CREATE TABLE IF NOT EXISTS team (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  pokemon_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  power_level INTEGER NOT NULL DEFAULT 0,
+  rarity TEXT NOT NULL DEFAULT 'Common',
+  image_url TEXT NOT NULL,
+  maxHP INTEGER NOT NULL DEFAULT 100,
+  currentHP INTEGER NOT NULL DEFAULT 100,
+  position INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_pokemon_type ON pokemon(type);
 CREATE INDEX IF NOT EXISTS idx_pokemon_rarity ON pokemon(rarity);
 CREATE INDEX IF NOT EXISTS idx_caught_pokemon_date ON caught_pokemon(caught_date);
+CREATE INDEX IF NOT EXISTS idx_caught_pokemon_user_id ON caught_pokemon(user_id);
+CREATE INDEX IF NOT EXISTS idx_player_progress_user_id ON player_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_team_user_id ON team(user_id);

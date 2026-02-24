@@ -1,10 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { pokemonAPI } from './client';
 
+// Mock localStorage
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: (key) => store[key] || null,
+    setItem: (key, value) => { store[key] = value; },
+    removeItem: (key) => { delete store[key]; },
+    clear: () => { store = {}; },
+  };
+})();
+
 describe('Pokemon API Client', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     global.fetch = vi.fn();
+    global.localStorage = localStorageMock;
+    localStorageMock.clear();
+    pokemonAPI.userId = null;
+    
+    // Mock crypto.randomUUID for tests that trigger getUserId
+    vi.stubGlobal('crypto', {
+      ...crypto,
+      randomUUID: vi.fn(() => 'test-uuid'),
+    });
   });
 
   describe('Core Request Method', () => {
@@ -113,6 +133,12 @@ describe('Pokemon API Client', () => {
 
   describe('Caught Pokemon Endpoints', () => {
     it('should fetch caught pokemon', async () => {
+      // Mock getUserId response
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+      
       const mockCaught = [{ id: 1, pokemon_id: 1, nickname: 'Sparky' }];
       fetch.mockResolvedValueOnce({
         ok: true,
@@ -121,14 +147,21 @@ describe('Pokemon API Client', () => {
 
       const result = await pokemonAPI.getCaughtPokemon();
 
+      expect(result).toEqual(mockCaught);
+      // Should include user_id in query
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/caught'),
+        expect.stringContaining('/api/caught?user_id='),
         expect.any(Object)
       );
-      expect(result).toEqual(mockCaught);
     });
 
     it('should catch a pokemon without nickname', async () => {
+      // Mock getUserId response
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+      
       fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true }),
@@ -136,16 +169,28 @@ describe('Pokemon API Client', () => {
 
       await pokemonAPI.catchPokemon(1);
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/caught'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ pokemon_id: 1, nickname: null }),
-        })
-      );
+      const catchCall = fetch.mock.calls.find(call => call[0].includes('/api/caught') && !call[0].includes('user_id'));
+      expect(catchCall).toBeDefined();
+      expect(catchCall[1]).toEqual(expect.objectContaining({
+        method: 'POST',
+      }));
+      
+      // Check that user_id is in the body
+      const body = JSON.parse(catchCall[1].body);
+      expect(body).toMatchObject({
+        pokemon_id: 1,
+        nickname: null,
+        user_id: 'test-uuid'
+      });
     });
 
     it('should catch a pokemon with nickname', async () => {
+      // Mock getUserId response
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+      
       fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true }),
@@ -153,12 +198,15 @@ describe('Pokemon API Client', () => {
 
       await pokemonAPI.catchPokemon(1, 'Sparky');
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({ pokemon_id: 1, nickname: 'Sparky' }),
-        })
-      );
+      const catchCall = fetch.mock.calls.find(call => call[0].includes('/api/caught') && !call[0].includes('user_id'));
+      expect(catchCall).toBeDefined();
+      
+      const body = JSON.parse(catchCall[1].body);
+      expect(body).toMatchObject({
+        pokemon_id: 1,
+        nickname: 'Sparky',
+        user_id: 'test-uuid'
+      });
     });
 
     it('should update caught pokemon', async () => {
@@ -198,6 +246,12 @@ describe('Pokemon API Client', () => {
 
   describe('Starter Pokemon Endpoints', () => {
     it('should claim starter pokemon', async () => {
+      // Mock getUserId response
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+      
       const mockStarters = [
         { id: 1, name: 'Bulbasaur', starter: true },
         { id: 4, name: 'Charmander', starter: true },
@@ -210,12 +264,16 @@ describe('Pokemon API Client', () => {
 
       const result = await pokemonAPI.claimStarters();
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/starter/claim'),
-        expect.objectContaining({
-          method: 'POST',
-        })
-      );
+      const claimCall = fetch.mock.calls.find(call => call[0].includes('/api/starter/claim'));
+      expect(claimCall).toBeDefined();
+      expect(claimCall[1]).toEqual(expect.objectContaining({
+        method: 'POST',
+      }));
+      
+      // Check that user_id is in the body
+      const body = JSON.parse(claimCall[1].body);
+      expect(body).toEqual({ user_id: 'test-uuid' });
+      
       expect(result).toEqual(mockStarters);
     });
   });

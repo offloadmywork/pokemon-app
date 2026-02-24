@@ -36,6 +36,74 @@ const STARTER_POKEMON = [
 // Enable CORS
 app.use('/api/*', cors());
 
+// ===== USER/SESSION API =====
+// Create or get user by ID
+app.post('/api/user', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id } = data;
+    
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    
+    // Check if user exists
+    const { results: existing } = await c.env.DB.prepare(
+      'SELECT id, created_at, last_active_at FROM users WHERE id = ?'
+    ).bind(user_id).all();
+    
+    if (existing.length > 0) {
+      // Update last_active_at
+      await c.env.DB.prepare(
+        'UPDATE users SET last_active_at = datetime(\'now\') WHERE id = ?'
+      ).bind(user_id).run();
+      
+      return c.json({
+        user_id: existing[0].id,
+        created_at: existing[0].created_at,
+        last_active_at: existing[0].last_active_at,
+        existing: true
+      });
+    }
+    
+    // Create new user
+    await c.env.DB.prepare(
+      'INSERT INTO users (id, created_at, last_active_at) VALUES (?, datetime(\'now\'), datetime(\'now\'))'
+    ).bind(user_id).run();
+    
+    return c.json({
+      user_id,
+      existing: false
+    }, 201);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Get user info
+app.get('/api/user/:id', async (c) => {
+  try {
+    const user_id = c.req.param('id');
+    
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, created_at, last_active_at FROM users WHERE id = ?'
+    ).bind(user_id).all();
+    
+    if (results.length === 0) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+    
+    return c.json({
+      user_id: results[0].id,
+      created_at: results[0].created_at,
+      last_active_at: results[0].last_active_at
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ================================
+
 // Get all Pokemon
 app.get('/api/pokemon', async (c) => {
   try {
@@ -121,13 +189,28 @@ app.post('/api/pokemon', async (c) => {
 // Get all caught Pokemon
 app.get('/api/caught', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(`
+    const user_id = c.req.query('user_id');
+    
+    let query = `
       SELECT c.id, c.pokemon_id, c.caught_date, c.nickname, 
              p.name, p.type, p.description, p.image_url, p.rarity, p.power_level
       FROM caught_pokemon c
       JOIN pokemon p ON c.pokemon_id = p.id
-      ORDER BY c.caught_date DESC
-    `).all();
+    `;
+    
+    const params = [];
+    
+    if (user_id) {
+      query += ' WHERE c.user_id = ?';
+      params.push(user_id);
+    } else {
+      // Backward compatibility: return Pokemon with NULL user_id for legacy data
+      query += ' WHERE c.user_id IS NULL';
+    }
+    
+    query += ' ORDER BY c.caught_date DESC';
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all();
     
     return c.json(results);
   } catch (error) {
@@ -142,11 +225,12 @@ app.post('/api/caught', async (c) => {
     const id = uuidv4();
     
     await c.env.DB.prepare(
-      `INSERT INTO caught_pokemon (id, pokemon_id, nickname) 
-       VALUES (?, ?, ?)`
+      `INSERT INTO caught_pokemon (id, pokemon_id, user_id, nickname) 
+       VALUES (?, ?, ?, ?)`
     ).bind(
       id,
       data.pokemon_id,
+      data.user_id || null,
       data.nickname || null
     ).run();
     
@@ -160,10 +244,21 @@ app.post('/api/caught', async (c) => {
 // Claim starter Pokemon (for new users)
 app.post('/api/starter/claim', async (c) => {
   try {
+    const data = await c.req.json();
+    const user_id = data.user_id || null;
+    
     // Check if user already has Pokemon
-    const { results: existing } = await c.env.DB.prepare(
-      'SELECT COUNT(*) as count FROM caught_pokemon'
-    ).all();
+    let countQuery = 'SELECT COUNT(*) as count FROM caught_pokemon';
+    const countParams = [];
+    
+    if (user_id) {
+      countQuery += ' WHERE user_id = ?';
+      countParams.push(user_id);
+    } else {
+      countQuery += ' WHERE user_id IS NULL';
+    }
+    
+    const { results: existing } = await c.env.DB.prepare(countQuery).bind(...countParams).all();
     
     if (existing[0].count > 0) {
       return c.json({ error: 'You already have Pokemon!' }, 400);
@@ -202,9 +297,9 @@ app.post('/api/starter/claim', async (c) => {
       // Add to user's collection
       const caughtId = uuidv4();
       await c.env.DB.prepare(
-        `INSERT INTO caught_pokemon (id, pokemon_id, caught_date) 
-         VALUES (?, ?, datetime('now'))`
-      ).bind(caughtId, pokemonId).run();
+        `INSERT INTO caught_pokemon (id, pokemon_id, user_id, caught_date) 
+         VALUES (?, ?, ?, datetime('now'))`
+      ).bind(caughtId, pokemonId, user_id).run();
       
       claimedPokemon.push({
         caught_id: caughtId,
@@ -267,9 +362,22 @@ app.delete('/api/caught/:id', async (c) => {
 // Get player progress (XP, level)
 app.get('/api/player/progress', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(
-      'SELECT xp, level FROM player_progress WHERE id = 1'
-    ).all();
+    const user_id = c.req.query('user_id');
+    
+    let query = 'SELECT xp, level FROM player_progress';
+    const params = [];
+    
+    if (user_id) {
+      query += ' WHERE user_id = ?';
+      params.push(user_id);
+    } else {
+      // Backward compatibility: legacy data with id=1 and user_id IS NULL
+      query += ' WHERE id = 1 OR user_id IS NULL';
+    }
+    
+    query += ' LIMIT 1';
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all();
     
     if (results.length === 0) {
       // Return defaults if no progress exists
@@ -290,17 +398,38 @@ app.get('/api/player/progress', async (c) => {
 app.post('/api/player/progress', async (c) => {
   try {
     const data = await c.req.json();
-    const { xp = 0, level = 1 } = data;
+    const { xp = 0, level = 1, user_id = null } = data;
     
-    // Upsert progress (single row table)
-    await c.env.DB.prepare(
-      `INSERT INTO player_progress (id, xp, level, updated_at) 
-       VALUES (1, ?, ?, datetime('now'))
-       ON CONFLICT(id) DO UPDATE SET 
-         xp = excluded.xp, 
-         level = excluded.level,
-         updated_at = datetime('now')`
-    ).bind(xp, level).run();
+    if (user_id) {
+      // User-specific progress
+      // Check if exists
+      const { results: existing } = await c.env.DB.prepare(
+        'SELECT id FROM player_progress WHERE user_id = ?'
+      ).bind(user_id).all();
+      
+      if (existing.length > 0) {
+        // Update existing
+        await c.env.DB.prepare(
+          `UPDATE player_progress SET xp = ?, level = ?, updated_at = datetime('now') WHERE user_id = ?`
+        ).bind(xp, level, user_id).run();
+      } else {
+        // Insert new
+        await c.env.DB.prepare(
+          `INSERT INTO player_progress (id, user_id, xp, level, updated_at) 
+           VALUES (?, ?, ?, ?, datetime('now'))`
+        ).bind(uuidv4(), user_id, xp, level).run();
+      }
+    } else {
+      // Legacy: Upsert progress (single row table with id=1)
+      await c.env.DB.prepare(
+        `INSERT INTO player_progress (id, xp, level, updated_at) 
+         VALUES (1, ?, ?, datetime('now'))
+         ON CONFLICT(id) DO UPDATE SET 
+           xp = excluded.xp, 
+           level = excluded.level,
+           updated_at = datetime('now')`
+      ).bind(xp, level).run();
+    }
     
     return c.json({ xp, level });
   } catch (error) {
@@ -313,9 +442,22 @@ app.post('/api/player/progress', async (c) => {
 // Get user's battle team
 app.get('/api/team', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(
-      'SELECT * FROM team ORDER BY position ASC'
-    ).all();
+    const user_id = c.req.query('user_id');
+    
+    let query = 'SELECT * FROM team';
+    const params = [];
+    
+    if (user_id) {
+      query += ' WHERE user_id = ?';
+      params.push(user_id);
+    } else {
+      // Backward compatibility: legacy data with NULL user_id
+      query += ' WHERE user_id IS NULL';
+    }
+    
+    query += ' ORDER BY position ASC';
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all();
     return c.json(results);
   } catch (error) {
     // If table doesn't exist yet, return empty array
@@ -329,21 +471,36 @@ app.get('/api/team', async (c) => {
 // Set user's battle team (replaces entire team)
 app.post('/api/team', async (c) => {
   try {
-    const teamData = await c.req.json();
+    const data = await c.req.json();
+    const { team: teamData, user_id = null } = data;
     
-    // Clear existing team
-    await c.env.DB.prepare('DELETE FROM team').run();
+    // Use teamData if provided, otherwise treat entire body as team array (backward compatibility)
+    const actualTeamData = teamData || data;
+    
+    // Clear existing team for this user
+    let deleteQuery = 'DELETE FROM team';
+    const deleteParams = [];
+    
+    if (user_id) {
+      deleteQuery += ' WHERE user_id = ?';
+      deleteParams.push(user_id);
+    } else {
+      deleteQuery += ' WHERE user_id IS NULL';
+    }
+    
+    await c.env.DB.prepare(deleteQuery).bind(...deleteParams).run();
     
     // Insert new team members
-    for (let i = 0; i < teamData.length && i < 3; i++) {
-      const member = teamData[i];
+    for (let i = 0; i < actualTeamData.length && i < 3; i++) {
+      const member = actualTeamData[i];
       const id = uuidv4();
       
       await c.env.DB.prepare(
-        `INSERT INTO team (id, pokemon_id, name, type, power_level, rarity, image_url, maxHP, currentHP, position)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO team (id, user_id, pokemon_id, name, type, power_level, rarity, image_url, maxHP, currentHP, position)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         id,
+        user_id,
         member.pokemon_id,
         member.name,
         member.type,
@@ -357,9 +514,19 @@ app.post('/api/team', async (c) => {
     }
     
     // Return updated team
-    const { results } = await c.env.DB.prepare(
-      'SELECT * FROM team ORDER BY position ASC'
-    ).all();
+    let selectQuery = 'SELECT * FROM team';
+    const selectParams = [];
+    
+    if (user_id) {
+      selectQuery += ' WHERE user_id = ?';
+      selectParams.push(user_id);
+    } else {
+      selectQuery += ' WHERE user_id IS NULL';
+    }
+    
+    selectQuery += ' ORDER BY position ASC';
+    
+    const { results } = await c.env.DB.prepare(selectQuery).bind(...selectParams).all();
     
     return c.json(results);
   } catch (error) {
@@ -370,13 +537,33 @@ app.post('/api/team', async (c) => {
 // Heal entire team
 app.patch('/api/team/heal', async (c) => {
   try {
-    await c.env.DB.prepare(
-      'UPDATE team SET currentHP = maxHP'
-    ).run();
+    const user_id = c.req.query('user_id');
     
-    const { results } = await c.env.DB.prepare(
-      'SELECT * FROM team ORDER BY position ASC'
-    ).all();
+    let updateQuery = 'UPDATE team SET currentHP = maxHP';
+    const updateParams = [];
+    
+    if (user_id) {
+      updateQuery += ' WHERE user_id = ?';
+      updateParams.push(user_id);
+    } else {
+      updateQuery += ' WHERE user_id IS NULL';
+    }
+    
+    await c.env.DB.prepare(updateQuery).bind(...updateParams).run();
+    
+    let selectQuery = 'SELECT * FROM team';
+    const selectParams = [];
+    
+    if (user_id) {
+      selectQuery += ' WHERE user_id = ?';
+      selectParams.push(user_id);
+    } else {
+      selectQuery += ' WHERE user_id IS NULL';
+    }
+    
+    selectQuery += ' ORDER BY position ASC';
+    
+    const { results } = await c.env.DB.prepare(selectQuery).bind(...selectParams).all();
     
     return c.json(results);
   } catch (error) {
@@ -389,10 +576,19 @@ app.patch('/api/team/:pokemonId', async (c) => {
   try {
     const pokemonId = c.req.param('pokemonId');
     const data = await c.req.json();
+    const user_id = data.user_id || null;
     
-    await c.env.DB.prepare(
-      'UPDATE team SET currentHP = ? WHERE pokemon_id = ?'
-    ).bind(data.currentHP, pokemonId).run();
+    let updateQuery = 'UPDATE team SET currentHP = ? WHERE pokemon_id = ?';
+    const params = [data.currentHP, pokemonId];
+    
+    if (user_id) {
+      updateQuery += ' AND user_id = ?';
+      params.push(user_id);
+    } else {
+      updateQuery += ' AND user_id IS NULL';
+    }
+    
+    await c.env.DB.prepare(updateQuery).bind(...params).run();
     
     return c.json({ success: true });
   } catch (error) {
@@ -404,10 +600,19 @@ app.patch('/api/team/:pokemonId', async (c) => {
 app.delete('/api/team/:pokemonId', async (c) => {
   try {
     const pokemonId = c.req.param('pokemonId');
+    const user_id = c.req.query('user_id');
     
-    await c.env.DB.prepare(
-      'DELETE FROM team WHERE pokemon_id = ?'
-    ).bind(pokemonId).run();
+    let deleteQuery = 'DELETE FROM team WHERE pokemon_id = ?';
+    const params = [pokemonId];
+    
+    if (user_id) {
+      deleteQuery += ' AND user_id = ?';
+      params.push(user_id);
+    } else {
+      deleteQuery += ' AND user_id IS NULL';
+    }
+    
+    await c.env.DB.prepare(deleteQuery).bind(...params).run();
     
     return c.json({ success: true });
   } catch (error) {
@@ -508,7 +713,7 @@ app.post('/api/pokemon/generate', async (c) => {
 app.post('/api/pokemon/generated', async (c) => {
   try {
     const data = await c.req.json();
-    const { name, type, description, image_url, power_level = 50 } = data;
+    const { name, type, description, image_url, power_level = 50, user_id = null } = data;
     
     if (!name || !type || !image_url) {
       return c.json({ error: 'Name, type, and image_url are required' }, 400);
@@ -526,8 +731,8 @@ app.post('/api/pokemon/generated', async (c) => {
     // Auto-catch the generated Pokemon
     const caughtId = uuidv4();
     await c.env.DB.prepare(
-      `INSERT INTO caught_pokemon (id, pokemon_id, caught_date) VALUES (?, ?, datetime('now'))`
-    ).bind(caughtId, id).run();
+      `INSERT INTO caught_pokemon (id, pokemon_id, user_id, caught_date) VALUES (?, ?, ?, datetime('now'))`
+    ).bind(caughtId, id, user_id).run();
 
     return c.json({ 
       success: true, 

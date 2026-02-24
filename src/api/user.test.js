@@ -1,0 +1,283 @@
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { pokemonAPI } from './client';
+
+// Mock localStorage
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: vi.fn((key) => store[key] || null),
+    setItem: vi.fn((key, value) => { store[key] = value; }),
+    removeItem: vi.fn((key) => { delete store[key]; }),
+    clear: vi.fn(() => { store = {}; }),
+  };
+})();
+
+// Store original fetch and localStorage
+const originalFetch = global.fetch;
+const originalLocalStorage = global.localStorage;
+const originalCrypto = global.crypto;
+
+describe('PokemonAPI User Management', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    pokemonAPI.userId = null; // Reset cached userId
+    
+    // Setup mocks
+    global.localStorage = localStorageMock;
+    global.fetch = vi.fn();
+    
+    // Mock crypto.randomUUID
+    vi.stubGlobal('crypto', {
+      ...originalCrypto,
+      randomUUID: vi.fn(() => 'test-uuid-12345'),
+    });
+  });
+
+  afterEach(() => {
+    // Restore originals
+    global.fetch = originalFetch;
+    global.localStorage = originalLocalStorage;
+    vi.unstubAllGlobals();
+  });
+
+  describe('getUserId', () => {
+    it('should generate and store new user ID if none exists', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
+      });
+
+      const userId = await pokemonAPI.getUserId();
+      
+      expect(userId).toBe('test-uuid-12345');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('pokemon-user-id', 'test-uuid-12345');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/user'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ user_id: 'test-uuid-12345' }),
+        })
+      );
+    });
+
+    it('should use existing user ID from localStorage', async () => {
+      localStorageMock.setItem('pokemon-user-id', 'existing-user-id');
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user_id: 'existing-user-id', existing: true }),
+      });
+
+      const userId = await pokemonAPI.getUserId();
+      
+      expect(userId).toBe('existing-user-id');
+      expect(global.crypto.randomUUID).not.toHaveBeenCalled();
+    });
+
+    it('should cache user ID after first call', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
+      });
+
+      const userId1 = await pokemonAPI.getUserId();
+      const userId2 = await pokemonAPI.getUserId();
+      
+      expect(userId1).toBe(userId2);
+      expect(global.fetch).toHaveBeenCalledTimes(1); // Only called once
+    });
+
+    it('should handle backend registration failure gracefully', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const userId = await pokemonAPI.getUserId();
+      
+      expect(userId).toBe('test-uuid-12345');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('pokemon-user-id', 'test-uuid-12345');
+    });
+  });
+
+  describe('API methods with user_id', () => {
+    beforeEach(() => {
+      // Setup getUserId to return a test user ID
+      localStorageMock.setItem('pokemon-user-id', 'test-user');
+      pokemonAPI.userId = 'test-user';
+    });
+
+    it('should include user_id in getCaughtPokemon request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await pokemonAPI.getCaughtPokemon();
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/caught?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in catchPokemon request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'caught-1', pokemon_id: 'poke-1' }),
+      });
+
+      await pokemonAPI.catchPokemon('poke-1', 'Sparky');
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/caught');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({
+        pokemon_id: 'poke-1',
+        nickname: 'Sparky',
+        user_id: 'test-user'
+      });
+    });
+
+    it('should include user_id in getProgress request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ xp: 100, level: 5 }),
+      });
+
+      await pokemonAPI.getProgress();
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/player/progress?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in setProgress request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ xp: 200, level: 6 }),
+      });
+
+      await pokemonAPI.setProgress(200, 6);
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/player/progress');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ xp: 200, level: 6, user_id: 'test-user' });
+    });
+
+    it('should include user_id in getTeam request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await pokemonAPI.getTeam();
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/team?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in setTeam request', async () => {
+      const teamData = [{ pokemon_id: 'poke-1', name: 'Sparky' }];
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => teamData,
+      });
+
+      await pokemonAPI.setTeam(teamData);
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/team');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ team: teamData, user_id: 'test-user' });
+    });
+
+    it('should include user_id in claimStarters request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, starters: [] }),
+      });
+
+      await pokemonAPI.claimStarters();
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/starter/claim');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ user_id: 'test-user' });
+    });
+
+    it('should include user_id in healTeam request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await pokemonAPI.healTeam();
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/team/heal?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in updateTeamMemberHP request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      await pokemonAPI.updateTeamMemberHP('poke-1', 50);
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/team/poke-1');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ currentHP: 50, user_id: 'test-user' });
+    });
+
+    it('should include user_id in removeFromTeam request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      await pokemonAPI.removeFromTeam('poke-1');
+      
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/team/poke-1?user_id=test-user'),
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+
+    it('should include user_id in saveGeneratedPokemon request', async () => {
+      const pokemonData = {
+        name: 'TestMon',
+        type: 'Fire',
+        description: 'A test pokemon',
+        image_url: 'http://example.com/image.png',
+        power_level: 50
+      };
+      
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, pokemon: pokemonData }),
+      });
+
+      await pokemonAPI.saveGeneratedPokemon(pokemonData);
+      
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/pokemon/generated');
+      
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body.user_id).toBe('test-user');
+      expect(body.name).toBe('TestMon');
+    });
+  });
+});
