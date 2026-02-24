@@ -16,13 +16,19 @@ vi.mock('@/api/client', () => ({
 
 // Mock the team module
 vi.mock('@/game/team', () => ({
+  setTeamApiClient: vi.fn(),
   loadTeam: vi.fn(() => []),
+  loadTeamAsync: vi.fn(() => Promise.resolve([])),
   saveTeam: vi.fn(),
+  saveTeamAsync: vi.fn((team) => Promise.resolve(team)),
   healTeam: vi.fn((team) => team),
+  healTeamAsync: vi.fn(() => Promise.resolve([])),
   addToTeam: vi.fn((team, id) => [...team, id]),
+  addToTeamAsync: vi.fn(() => Promise.resolve({ success: true, team: [] })),
   removeFromTeam: vi.fn((team, id) => team.filter((t) => t !== id)),
+  removeFromTeamAsync: vi.fn(() => Promise.resolve([])),
   isOnTeam: vi.fn(() => false),
-  MAX_TEAM_SIZE: 6,
+  MAX_TEAM_SIZE: 3,
 }));
 
 describe('Collection Page', () => {

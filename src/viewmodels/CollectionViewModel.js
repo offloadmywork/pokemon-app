@@ -65,10 +65,21 @@ export class CollectionViewModel {
   }
 
   // ═══════════════════════════════════════════════════
-  // Team Management
+  // Team Management (API-backed)
   // ═══════════════════════════════════════════════════
   
-  addToTeam(pokemon) {
+  async loadTeam() {
+    try {
+      const team = await this.api.getTeam();
+      this.team = team;
+      return team;
+    } catch (err) {
+      console.error('Failed to load team:', err);
+      return [];
+    }
+  }
+
+  async addToTeam(pokemon) {
     // Check for duplicates
     if (this.isOnTeam(pokemon.id)) {
       return { success: false, message: 'Already on team!' };
@@ -90,25 +101,47 @@ export class CollectionViewModel {
       currentHP: TEAM_HP,
     };
     
+    // Optimistically update local state
     this.team = [...this.team, teamMember];
     
-    return { success: true, team: this.team };
+    try {
+      // Persist to API
+      const updatedTeam = await this.api.setTeam(this.team);
+      this.team = updatedTeam;
+      return { success: true, team: this.team };
+    } catch (err) {
+      // Revert on error
+      this.team = this.team.filter(p => p.pokemon_id !== pokemon.id);
+      console.error('Failed to add to team:', err);
+      return { success: false, message: 'Failed to save team' };
+    }
   }
 
-  removeFromTeam(pokemonId) {
+  async removeFromTeam(pokemonId) {
+    const previousTeam = this.team;
     this.team = this.team.filter(p => p.pokemon_id !== pokemonId);
+    
+    try {
+      await this.api.setTeam(this.team);
+    } catch (err) {
+      this.team = previousTeam;
+      console.error('Failed to remove from team:', err);
+    }
   }
 
   isOnTeam(pokemonId) {
     return this.team.some(p => p.pokemon_id === pokemonId);
   }
 
-  healTeam() {
-    this.team = this.team.map(p => ({
-      ...p,
-      currentHP: p.maxHP,
-    }));
-    return this.team;
+  async healTeam() {
+    try {
+      const healedTeam = await this.api.healTeam();
+      this.team = healedTeam;
+      return healedTeam;
+    } catch (err) {
+      console.error('Failed to heal team:', err);
+      return this.team;
+    }
   }
 
   // ═══════════════════════════════════════════════════

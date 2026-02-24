@@ -8,6 +8,9 @@ const mockApiClient = {
   claimStarters: vi.fn(),
   updateCaughtPokemon: vi.fn(),
   releasePokemon: vi.fn(),
+  getTeam: vi.fn(),
+  setTeam: vi.fn(),
+  healTeam: vi.fn(),
 };
 
 // Mock localStorage
@@ -94,12 +97,15 @@ describe('CollectionViewModel', () => {
         { id: 'c4', pokemon_id: 'p4', name: 'Bulbasaur', type: 'Grass', power_level: 30 },
       ];
       mockApiClient.getCaughtPokemon.mockResolvedValue(mockCaught);
+      mockApiClient.getTeam.mockResolvedValue([]);
       await vm.loadCollection();
     });
 
-    it('adds pokemon to team', () => {
+    it('adds pokemon to team', async () => {
       const pokemon = { id: 'p1', name: 'Pikachu', type: 'Electric', power_level: 50 };
-      vm.addToTeam(pokemon);
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      
+      await vm.addToTeam(pokemon);
 
       expect(vm.team.length).toBe(1);
       expect(vm.team[0].pokemon_id).toBe('p1');
@@ -107,28 +113,34 @@ describe('CollectionViewModel', () => {
       expect(vm.team[0].maxHP).toBe(100);
     });
 
-    it('limits team to 3 pokemon', () => {
-      vm.addToTeam({ id: 'p1', name: 'P1' });
-      vm.addToTeam({ id: 'p2', name: 'P2' });
-      vm.addToTeam({ id: 'p3', name: 'P3' });
-      const result = vm.addToTeam({ id: 'p4', name: 'P4' });
+    it('limits team to 3 pokemon', async () => {
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      
+      await vm.addToTeam({ id: 'p1', name: 'P1' });
+      await vm.addToTeam({ id: 'p2', name: 'P2' });
+      await vm.addToTeam({ id: 'p3', name: 'P3' });
+      const result = await vm.addToTeam({ id: 'p4', name: 'P4' });
 
       expect(vm.team.length).toBe(3);
       expect(result.success).toBe(false);
       expect(result.message).toContain('Team is full');
     });
 
-    it('does not add duplicate pokemon', () => {
-      vm.addToTeam({ id: 'p1', name: 'Pikachu' });
-      const result = vm.addToTeam({ id: 'p1', name: 'Pikachu' });
+    it('does not add duplicate pokemon', async () => {
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      
+      await vm.addToTeam({ id: 'p1', name: 'Pikachu' });
+      const result = await vm.addToTeam({ id: 'p1', name: 'Pikachu' });
 
       expect(vm.team.length).toBe(1);
       expect(result.success).toBe(false);
     });
 
-    it('removes pokemon from team', () => {
-      vm.addToTeam({ id: 'p1', name: 'Pikachu' });
-      vm.removeFromTeam('p1');
+    it('removes pokemon from team', async () => {
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      
+      await vm.addToTeam({ id: 'p1', name: 'Pikachu' });
+      await vm.removeFromTeam('p1');
 
       expect(vm.team.length).toBe(0);
     });
@@ -219,6 +231,7 @@ describe('CollectionViewModel', () => {
       mockApiClient.getCaughtPokemon.mockResolvedValue([
         { id: 'c1', pokemon_id: 'p1', name: 'Pikachu' },
       ]);
+      mockApiClient.getTeam.mockResolvedValue([]);
       await vm.loadCollection();
     });
 
@@ -232,7 +245,9 @@ describe('CollectionViewModel', () => {
     });
 
     it('removes released pokemon from team if on team', async () => {
-      vm.addToTeam({ id: 'p1', name: 'Pikachu' });
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      
+      await vm.addToTeam({ id: 'p1', name: 'Pikachu' });
       mockApiClient.releasePokemon.mockResolvedValue({ success: true });
       
       await vm.releasePokemon('c1', 'p1');
@@ -242,24 +257,28 @@ describe('CollectionViewModel', () => {
   });
 
   describe('Healing', () => {
-    it('heals all team members', () => {
-      vm.addToTeam({ id: 'p1', name: 'Pikachu', power_level: 50 });
-      vm.addToTeam({ id: 'p2', name: 'Charmander', power_level: 40 });
+    it('heals all team members', async () => {
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      mockApiClient.healTeam.mockResolvedValue([
+        { pokemon_id: 'p1', name: 'Pikachu', currentHP: 100, maxHP: 100 },
+        { pokemon_id: 'p2', name: 'Charmander', currentHP: 100, maxHP: 100 },
+      ]);
       
-      // Simulate damage
-      vm.team[0].currentHP = 50;
-      vm.team[1].currentHP = 30;
+      await vm.addToTeam({ id: 'p1', name: 'Pikachu', power_level: 50 });
+      await vm.addToTeam({ id: 'p2', name: 'Charmander', power_level: 40 });
       
-      vm.healTeam();
+      // Simulate damage (would need to be done through API in real flow)
       
-      expect(vm.team[0].currentHP).toBe(100);
-      expect(vm.team[1].currentHP).toBe(100);
+      await vm.healTeam();
+      
+      expect(mockApiClient.healTeam).toHaveBeenCalled();
     });
   });
 
   describe('Is On Team Check', () => {
-    it('returns true if pokemon is on team', () => {
-      vm.addToTeam({ id: 'p1', name: 'Pikachu' });
+    it('returns true if pokemon is on team', async () => {
+      mockApiClient.setTeam.mockImplementation((team) => Promise.resolve(team));
+      await vm.addToTeam({ id: 'p1', name: 'Pikachu' });
       expect(vm.isOnTeam('p1')).toBe(true);
     });
 

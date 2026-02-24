@@ -4,9 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPokemonImage, typeEmojis, rarityConfig } from "@/game/constants";
 import { getMaxHP } from "@/game/battle";
-import { loadTeam, saveTeam, healTeam, addToTeam, removeFromTeam, isOnTeam, MAX_TEAM_SIZE } from "@/game/team";
+import { 
+  setTeamApiClient, 
+  loadTeam,
+  loadTeamAsync, 
+  saveTeam,
+  saveTeamAsync, 
+  healTeamAsync, 
+  addToTeamAsync, 
+  removeFromTeamAsync, 
+  isOnTeam, 
+  MAX_TEAM_SIZE 
+} from "@/game/team";
 
 const ITEMS_PER_PAGE = 12;
+
+// Initialize team API client on module load
+setTeamApiClient(pokemonAPI);
 
 export default function Collection({ onNavigate }) {
   const [allCaught, setAllCaught] = useState([]);       // Full caught list (lightweight)
@@ -28,6 +42,10 @@ export default function Collection({ onNavigate }) {
   useEffect(() => {
     (async () => {
       try {
+        // Load team from API first (cross-device)
+        const savedTeam = await loadTeamAsync();
+        setTeam(savedTeam);
+        
         const caughtList = await pokemonAPI.getCaughtPokemon();
         
         // Auto-initialize starters for new users (empty collection, first visit)
