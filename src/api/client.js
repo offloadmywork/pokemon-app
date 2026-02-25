@@ -179,6 +179,37 @@ class PokemonAPI {
     });
   }
   // ===========================
+
+  // ===== ITEMS API =====
+  async getItems() {
+    const userId = await this.getUserId();
+    return this.request(`/api/items?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async addItem(itemId, quantity = 1) {
+    const userId = await this.getUserId();
+    return this.request('/api/items', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: itemId, quantity, user_id: userId }),
+    });
+  }
+
+  async useItem(itemId) {
+    const userId = await this.getUserId();
+    return this.request(`/api/items/${itemId}/use`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
+  async setItemQuantity(itemId, quantity) {
+    const userId = await this.getUserId();
+    return this.request(`/api/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity, user_id: userId }),
+    });
+  }
+  // ====================
 }
 
 export const pokemonAPI = new PokemonAPI();

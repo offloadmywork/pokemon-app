@@ -745,4 +745,127 @@ app.post('/api/pokemon/generated', async (c) => {
 });
 // ===========================================
 
+// ===== ITEMS API =====
+// Get user's items
+app.get('/api/items', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    
+    const { results } = await c.env.DB.prepare(
+      'SELECT item_id, quantity FROM user_items WHERE user_id = ? AND quantity > 0'
+    ).bind(user_id).all();
+    
+    return c.json(results);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Add items to inventory
+app.post('/api/items', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { item_id, quantity = 1, user_id } = data;
+    
+    if (!user_id || !item_id) {
+      return c.json({ error: 'user_id and item_id are required' }, 400);
+    }
+    
+    // Check if item exists
+    const { results: existing } = await c.env.DB.prepare(
+      'SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ?'
+    ).bind(user_id, item_id).all();
+    
+    if (existing.length > 0) {
+      // Update quantity
+      const newQty = existing[0].quantity + quantity;
+      await c.env.DB.prepare(
+        'UPDATE user_items SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(newQty, existing[0].id).run();
+      
+      return c.json({ success: true, item_id, quantity: newQty });
+    }
+    
+    // Create new item
+    const id = uuidv4();
+    await c.env.DB.prepare(
+      'INSERT INTO user_items (id, user_id, item_id, quantity) VALUES (?, ?, ?, ?)'
+    ).bind(id, user_id, item_id, quantity).run();
+    
+    return c.json({ success: true, item_id, quantity }, 201);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Use an item (decrement quantity)
+app.post('/api/items/:itemId/use', async (c) => {
+  try {
+    const item_id = c.req.param('itemId');
+    const data = await c.req.json();
+    const { user_id } = data;
+    
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    
+    // Get current quantity
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ?'
+    ).bind(user_id, item_id).all();
+    
+    if (results.length === 0 || results[0].quantity <= 0) {
+      return c.json({ error: 'Item not available' }, 400);
+    }
+    
+    const newQty = results[0].quantity - 1;
+    
+    await c.env.DB.prepare(
+      'UPDATE user_items SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?'
+    ).bind(newQty, results[0].id).run();
+    
+    return c.json({ success: true, item_id, quantity: newQty });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Set item quantity
+app.put('/api/items/:itemId', async (c) => {
+  try {
+    const item_id = c.req.param('itemId');
+    const data = await c.req.json();
+    const { quantity, user_id } = data;
+    
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    
+    // Check if item exists
+    const { results: existing } = await c.env.DB.prepare(
+      'SELECT id FROM user_items WHERE user_id = ? AND item_id = ?'
+    ).bind(user_id, item_id).all();
+    
+    if (existing.length > 0) {
+      await c.env.DB.prepare(
+        'UPDATE user_items SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(quantity, existing[0].id).run();
+    } else {
+      const id = uuidv4();
+      await c.env.DB.prepare(
+        'INSERT INTO user_items (id, user_id, item_id, quantity) VALUES (?, ?, ?, ?)'
+      ).bind(id, user_id, item_id, quantity).run();
+    }
+    
+    return c.json({ success: true, item_id, quantity });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
+
 export default app;

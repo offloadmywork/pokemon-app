@@ -58,6 +58,19 @@ CREATE TABLE IF NOT EXISTS team (
 CREATE INDEX IF NOT EXISTS idx_pokemon_type ON pokemon(type);
 CREATE INDEX IF NOT EXISTS idx_pokemon_rarity ON pokemon(rarity);
 CREATE INDEX IF NOT EXISTS idx_caught_pokemon_date ON caught_pokemon(caught_date);
+
+-- User items table
+CREATE TABLE IF NOT EXISTS user_items (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(user_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_items_user ON user_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_caught_pokemon_user_id ON caught_pokemon(user_id);
 CREATE INDEX IF NOT EXISTS idx_player_progress_user_id ON player_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_user_id ON team(user_id);
