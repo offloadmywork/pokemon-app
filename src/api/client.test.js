@@ -278,6 +278,38 @@ describe('Pokemon API Client', () => {
     });
   });
 
+  describe('Leaderboards Endpoints', () => {
+    it('should fetch leaderboard entries with key', async () => {
+      const mockEntries = { key: 'level', entries: [{ user_id: 'u1', score: 100, rank: 1 }] };
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockEntries),
+      });
+
+      const result = await pokemonAPI.getLeaderboard('level');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/leaderboards?key=level'),
+        expect.any(Object)
+      );
+      expect(result).toEqual(mockEntries);
+    });
+
+    it('should include limit when provided', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ key: 'caught', entries: [] }),
+      });
+
+      await pokemonAPI.getLeaderboard('caught', 5);
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/leaderboards?key=caught&limit=5'),
+        expect.any(Object)
+      );
+    });
+  });
+
   describe('Custom Headers', () => {
     it('should merge custom headers with default headers', async () => {
       fetch.mockResolvedValueOnce({
@@ -300,4 +332,47 @@ describe('Pokemon API Client', () => {
       );
     });
   });
+  describe('Challenge Tower Endpoints', () => {
+    it('should fetch challenge tower status', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+      const towerPayload = { progress: { current_floor: 1 }, floors: [] };
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(towerPayload),
+      });
+
+      const result = await pokemonAPI.getChallengeTower();
+
+      expect(result).toEqual(towerPayload);
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/tower?user_id='),
+        expect.any(Object)
+      );
+    });
+
+    it('should complete a challenge tower floor', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ progress: { current_floor: 2 } }),
+      });
+
+      await pokemonAPI.completeChallengeTowerFloor(1);
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/tower/complete'));
+      expect(call).toBeDefined();
+      expect(call[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+      const body = JSON.parse(call[1].body);
+      expect(body).toMatchObject({ user_id: 'test-uuid', floor: 1 });
+    });
+  });
+
 });

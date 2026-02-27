@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import DailyQuestsPanel from "@/components/DailyQuestsPanel";
+import ChallengeTowerPanel from "@/components/ChallengeTowerPanel";
 
 export default function Home({ onNavigate }) {
   return (
@@ -34,6 +35,10 @@ export default function Home({ onNavigate }) {
         </div>
 
         <DailyQuestsPanel />
+
+        <div className="mt-8">
+          <ChallengeTowerPanel />
+        </div>
       </div>
     </div>
   );

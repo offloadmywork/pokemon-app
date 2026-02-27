@@ -63,6 +63,17 @@ const DAILY_QUEST_TEMPLATES = [
   },
 ];
 
+
+const CHALLENGE_TOWER_FLOORS = [
+  { floor: 1, name: 'Sprout Steps', difficulty: 1, reward_xp: 15 },
+  { floor: 2, name: 'Ember Rise', difficulty: 2, reward_xp: 25 },
+  { floor: 3, name: 'Torrent Gate', difficulty: 3, reward_xp: 35 },
+  { floor: 4, name: 'Storm Pinnacle', difficulty: 4, reward_xp: 45 },
+  { floor: 5, name: 'Dragon Summit', difficulty: 5, reward_xp: 60 },
+];
+
+
+
 const ensureUserExists = async (db, userId) => {
   if (!userId) return;
   await db.prepare(
@@ -837,6 +848,115 @@ app.post('/api/quests/daily/:id/claim', claimDailyQuest);
 app.post('/api/daily-quests/:id/claim', claimDailyQuest);
 app.post('/api/quests/daily/claim-all', claimAllDailyQuests);
 app.post('/api/daily-quests/claim-all', claimAllDailyQuests);
+
+// ===== CHALLENGE TOWER API =====
+const ensureTowerProgress = async (db, userId) => {
+  if (!userId) return null;
+  await db.prepare(
+    `INSERT INTO challenge_tower_progress (user_id, current_floor, best_floor, last_completed_floor, updated_at)
+     VALUES (?, 1, 1, 0, datetime('now'))
+     ON CONFLICT(user_id) DO NOTHING`
+  ).bind(userId).run();
+
+  const { results } = await db.prepare(
+    'SELECT * FROM challenge_tower_progress WHERE user_id = ?'
+  ).bind(userId).all();
+
+  return results[0] || null;
+};
+
+app.get('/api/tower', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const progress = await ensureTowerProgress(c.env.DB, user_id);
+    const maxFloor = CHALLENGE_TOWER_FLOORS.length;
+    const isComplete = progress.current_floor > maxFloor;
+    const currentFloorNumber = isComplete ? null : progress.current_floor;
+    const currentFloor = currentFloorNumber
+      ? CHALLENGE_TOWER_FLOORS.find((floor) => floor.floor === currentFloorNumber) || null
+      : null;
+
+    return c.json({
+      progress,
+      floors: CHALLENGE_TOWER_FLOORS,
+      current_floor: currentFloor,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/tower/complete', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, floor } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const maxFloor = CHALLENGE_TOWER_FLOORS.length;
+    const floorNumber = Number(floor);
+
+    if (!Number.isInteger(floorNumber) || floorNumber < 1 || floorNumber > maxFloor) {
+      return c.json({ error: 'Invalid floor' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const progress = await ensureTowerProgress(c.env.DB, user_id);
+
+    if (!progress) {
+      return c.json({ error: 'Progress not found' }, 404);
+    }
+
+    if (progress.current_floor > maxFloor) {
+      return c.json({ error: 'Tower already complete' }, 400);
+    }
+
+    if (floorNumber !== progress.current_floor) {
+      return c.json({ error: 'Floor not available' }, 400);
+    }
+
+    const nextFloor = Math.min(floorNumber + 1, maxFloor + 1);
+    const bestFloor = Math.max(progress.best_floor, floorNumber);
+
+    await c.env.DB.prepare(
+      `UPDATE challenge_tower_progress
+       SET current_floor = ?,
+           best_floor = ?,
+           last_completed_floor = ?,
+           last_completed_at = datetime('now'),
+           updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(nextFloor, bestFloor, floorNumber, user_id).run();
+
+    const { results: updated } = await c.env.DB.prepare(
+      'SELECT * FROM challenge_tower_progress WHERE user_id = ?'
+    ).bind(user_id).all();
+
+    const updatedProgress = updated[0];
+    const isComplete = updatedProgress.current_floor > maxFloor;
+    const currentFloorNumber = isComplete ? null : updatedProgress.current_floor;
+    const currentFloor = currentFloorNumber
+      ? CHALLENGE_TOWER_FLOORS.find((floor) => floor.floor === currentFloorNumber) || null
+      : null;
+
+    return c.json({
+      progress: updatedProgress,
+      floors: CHALLENGE_TOWER_FLOORS,
+      current_floor: currentFloor,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ================================================
+
 // ================================================
 
 // ===== POKEMON CREATOR - AI GENERATION =====

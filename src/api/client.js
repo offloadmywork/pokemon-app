@@ -240,6 +240,28 @@ class PokemonAPI {
       body: JSON.stringify({ user_id: userId }),
     });
   }
+
+  // ===== LEADERBOARDS API =====
+  async getLeaderboard(key = 'level', limit = null) {
+    const query = new URLSearchParams({ key });
+    if (limit) query.set('limit', String(limit));
+    return this.request(`/api/leaderboards?${query.toString()}`);
+  }
+  // ====================
+
+  // ===== CHALLENGE TOWER API =====
+  async getChallengeTower() {
+    const userId = await this.getUserId();
+    return this.request(`/api/tower?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async completeChallengeTowerFloor(floor) {
+    const userId = await this.getUserId();
+    return this.request('/api/tower/complete', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, floor }),
+    });
+  }
   // ====================
 }
 
