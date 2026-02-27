@@ -999,7 +999,7 @@ const buildLeaderboardEntries = async (db, leaderboardKey, limit) => {
     `;
     formatter = (row) => ({
       user_id: row.user_id,
-      score: row.level,
+      score: (row.level * 1000000) + row.xp,
       detail: { level: row.level, xp: row.xp },
     });
   }

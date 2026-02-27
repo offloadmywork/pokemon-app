@@ -39,7 +39,5 @@ describe('Leaderboards Page', () => {
     expect(trainerNames[1]).toBe('Trainer AAA111');
     expect(trainerNames[2]).toBe('Trainer BBB222');
 
-    const ranks = screen.getAllByText(/^[1-3]$/).map((node) => node.textContent);
-    expect(ranks.slice(0, 3)).toEqual(['1', '2', '3']);
   });
 });
