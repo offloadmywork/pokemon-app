@@ -13,3 +13,6 @@ migrations_dir = "worker/migrations"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+
+[vars]
+FEATURE_LEADERBOARDS = "false"

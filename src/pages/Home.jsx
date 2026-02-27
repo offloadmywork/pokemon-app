@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import DailyQuestsPanel from "@/components/DailyQuestsPanel";
 import ChallengeTowerPanel from "@/components/ChallengeTowerPanel";
+import { featureFlags } from "@/config/featureFlags";
 
 export default function Home({ onNavigate }) {
   return (
@@ -32,6 +33,15 @@ export default function Home({ onNavigate }) {
           >
             ⭐ My Collection
           </Button>
+
+          {featureFlags.leaderboards && (
+            <Button
+              onClick={() => onNavigate('leaderboards')}
+              className="h-16 text-2xl font-bold bg-blue-400 hover:bg-blue-500 text-white rounded-2xl shadow-lg transform transition hover:scale-105"
+            >
+              🏆 Leaderboards
+            </Button>
+          )}
         </div>
 
         <DailyQuestsPanel />

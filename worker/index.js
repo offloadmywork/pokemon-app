@@ -957,6 +957,112 @@ app.post('/api/tower/complete', async (c) => {
 });
 // ================================================
 
+// ===== LEADERBOARDS API =====
+const isLeaderboardsEnabled = (c) => c.env?.FEATURE_LEADERBOARDS === 'true';
+
+const buildLeaderboardEntries = async (db, leaderboardKey, limit) => {
+  let query = '';
+  let formatter = (row) => ({
+    user_id: row.user_id,
+    score: row.score,
+    detail: row.detail,
+  });
+
+  if (leaderboardKey === 'caught') {
+    query = `
+      SELECT user_id, COUNT(*) as total
+      FROM caught_pokemon
+      WHERE user_id IS NOT NULL
+      GROUP BY user_id
+      ORDER BY total DESC
+      LIMIT ?
+    `;
+    formatter = (row) => ({
+      user_id: row.user_id,
+      score: row.total,
+      detail: { caught: row.total },
+    });
+  } else if (leaderboardKey === 'tower') {
+    query = `
+      SELECT user_id, best_floor
+      FROM challenge_tower_progress
+      WHERE user_id IS NOT NULL
+      ORDER BY best_floor DESC
+      LIMIT ?
+    `;
+    formatter = (row) => ({
+      user_id: row.user_id,
+      score: row.best_floor,
+      detail: { best_floor: row.best_floor },
+    });
+  } else {
+    query = `
+      SELECT user_id, level, xp
+      FROM player_progress
+      WHERE user_id IS NOT NULL
+      ORDER BY level DESC, xp DESC
+      LIMIT ?
+    `;
+    formatter = (row) => ({
+      user_id: row.user_id,
+      score: row.level,
+      detail: { level: row.level, xp: row.xp },
+    });
+  }
+
+  const { results } = await db.prepare(query).bind(limit).all();
+  return results.map(formatter);
+};
+
+const upsertLeaderboardEntries = async (db, leaderboardKey, entries) => {
+  for (const entry of entries) {
+    await db.prepare(
+      `INSERT INTO leaderboard_entries (id, leaderboard_key, user_id, score, detail_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(leaderboard_key, user_id) DO UPDATE SET
+         score = excluded.score,
+         detail_json = excluded.detail_json,
+         updated_at = datetime('now')`
+    ).bind(
+      uuidv4(),
+      leaderboardKey,
+      entry.user_id,
+      entry.score,
+      JSON.stringify(entry.detail || {})
+    ).run();
+  }
+};
+
+app.get('/api/leaderboards', async (c) => {
+  try {
+    if (!isLeaderboardsEnabled(c)) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    const leaderboardKey = c.req.query('key') || 'level';
+    const limitParam = parseInt(c.req.query('limit') || '10', 10);
+    const limit = Number.isNaN(limitParam) ? 10 : Math.min(Math.max(limitParam, 1), 50);
+
+    const entries = await buildLeaderboardEntries(c.env.DB, leaderboardKey, limit);
+
+    if (entries.length > 0) {
+      await upsertLeaderboardEntries(c.env.DB, leaderboardKey, entries);
+    }
+
+    return c.json({
+      key: leaderboardKey,
+      entries: entries.map((entry, index) => ({
+        rank: index + 1,
+        ...entry,
+      })),
+    });
+  } catch (error) {
+    if (error.message.includes('no such table')) {
+      return c.json({ key: c.req.query('key') || 'level', entries: [] });
+    }
+    return c.json({ error: error.message }, 500);
+  }
+});
 // ================================================
 
 // ===== POKEMON CREATOR - AI GENERATION =====
