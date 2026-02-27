@@ -375,4 +375,47 @@ describe('Pokemon API Client', () => {
     });
   });
 
+  describe('Evolution Endpoints', () => {
+    it('should fetch evolution options', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+      const mockOptions = [{ caught_id: 'c1', can_evolve: true }];
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockOptions),
+      });
+
+      const result = await pokemonAPI.getEvolutionOptions();
+
+      expect(result).toEqual(mockOptions);
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/evolution/options?user_id='),
+        expect.any(Object)
+      );
+    });
+
+    it('should evolve a pokemon', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      await pokemonAPI.evolvePokemon('c1');
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/evolution/evolve'));
+      expect(call).toBeDefined();
+      expect(call[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+      const body = JSON.parse(call[1].body);
+      expect(body).toMatchObject({ user_id: 'test-uuid', caught_id: 'c1' });
+    });
+  });
+
 });

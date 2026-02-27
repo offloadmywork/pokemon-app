@@ -11,6 +11,10 @@ vi.mock('@/components/ChallengeTowerPanel', () => ({
   default: () => <div>Challenge Tower</div>,
 }));
 
+vi.mock('@/components/EvolutionPanel', () => ({
+  default: () => <div>Evolution Panel</div>,
+}));
+
 describe('Home Page', () => {
   it('should render the welcome message', () => {
     render(<Home onNavigate={vi.fn()} />);

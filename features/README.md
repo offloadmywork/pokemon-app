@@ -15,6 +15,12 @@ This directory contains Behavior-Driven Development (BDD) feature files written 
 - Graceful failure handling
 - Test coverage: `src/pages/Collection.test.jsx`
 
+### ✅ Pokemon Evolution (`evolution.feature`)
+- View available evolutions
+- Evolve eligible Pokemon
+- Block evolution when underleveled
+- Test coverage: `src/viewmodels/EvolutionViewModel.test.js`, `src/components/EvolutionPanel.test.jsx`, `src/api/client.test.js`
+
 ## BDD Development Workflow
 
 1. **Write the feature** - Define expected behavior in Gherkin
@@ -56,13 +62,14 @@ npm test -- src/pages/Collection.test.jsx
 | Feature | Scenarios | Tests Passing | Implementation |
 |---------|-----------|---------------|----------------|
 | Starter Pokemon | 4 | ✅ 7/7 | ✅ Complete |
+| Pokemon Evolution | 3 | ✅ 3/3 | ✅ Complete |
 
 ## Next Features to Add
 
 - [ ] **Collection Management** - Pagination, filtering, search
 - [ ] **Team Building** - Add/remove Pokemon, team limits, validation
 - [ ] **Battles** - Wild encounters, battle flow, victory/defeat
-- [ ] **Pokemon Evolution** - Level up, evolve, stat changes
+- [x] **Pokemon Evolution** - Level up, evolve, stat changes
 - [ ] **Trading** - Player-to-player trades, trade validation
 
 ## Contributing

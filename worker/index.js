@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { buildChallengeTowerFloors, CHALLENGE_TOWER_MAX_FLOORS } from '../src/game/challengeTower.js';
+import { getMaxHP } from '../src/game/battle.js';
 
 const app = new Hono();
 
@@ -1057,6 +1058,194 @@ app.get('/api/leaderboards', async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+// ================================================
+
+// ===== EVOLUTION API =====
+const getTrainerLevel = async (db, userId) => {
+  const { results } = await db.prepare(
+    'SELECT level FROM player_progress WHERE user_id = ?'
+  ).bind(userId).all();
+
+  return results.length > 0 ? results[0].level : 1;
+};
+
+const listEvolutionOptions = async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const trainerLevel = await getTrainerLevel(c.env.DB, user_id);
+
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         c.id AS caught_id,
+         p.id AS from_id,
+         p.name AS from_name,
+         p.type AS from_type,
+         p.image_url AS from_image_url,
+         p.rarity AS from_rarity,
+         p.power_level AS from_power_level,
+         e.to_name AS to_name,
+         e.min_trainer_level AS min_trainer_level,
+         tp.id AS to_id,
+         tp.type AS to_type,
+         tp.image_url AS to_image_url,
+         tp.rarity AS to_rarity,
+         tp.power_level AS to_power_level
+       FROM caught_pokemon c
+       JOIN pokemon p ON c.pokemon_id = p.id
+       JOIN pokemon_evolutions e ON e.from_name = p.name
+       JOIN pokemon tp ON tp.name = e.to_name
+       WHERE c.user_id = ?
+       ORDER BY c.caught_date DESC`
+    ).bind(user_id).all();
+
+    const options = results.map((row) => ({
+      caught_id: row.caught_id,
+      required_level: row.min_trainer_level,
+      can_evolve: trainerLevel >= row.min_trainer_level,
+      from: {
+        id: row.from_id,
+        name: row.from_name,
+        type: row.from_type,
+        image_url: row.from_image_url,
+        rarity: row.from_rarity,
+        power_level: row.from_power_level,
+      },
+      to: {
+        id: row.to_id,
+        name: row.to_name,
+        type: row.to_type,
+        image_url: row.to_image_url,
+        rarity: row.to_rarity,
+        power_level: row.to_power_level,
+      },
+    }));
+
+    return c.json(options);
+  } catch (error) {
+    if (error.message.includes('no such table')) {
+      return c.json([]);
+    }
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+const evolvePokemon = async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, caught_id } = data;
+
+    if (!user_id || !caught_id) {
+      return c.json({ error: 'user_id and caught_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const trainerLevel = await getTrainerLevel(c.env.DB, user_id);
+
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         c.id AS caught_id,
+         c.pokemon_id AS from_id,
+         p.name AS from_name,
+         p.type AS from_type,
+         p.image_url AS from_image_url,
+         p.rarity AS from_rarity,
+         p.power_level AS from_power_level,
+         e.to_name AS to_name,
+         e.min_trainer_level AS min_trainer_level,
+         tp.id AS to_id,
+         tp.type AS to_type,
+         tp.image_url AS to_image_url,
+         tp.rarity AS to_rarity,
+         tp.power_level AS to_power_level
+       FROM caught_pokemon c
+       JOIN pokemon p ON c.pokemon_id = p.id
+       JOIN pokemon_evolutions e ON e.from_name = p.name
+       JOIN pokemon tp ON tp.name = e.to_name
+       WHERE c.id = ? AND c.user_id = ?
+       LIMIT 1`
+    ).bind(caught_id, user_id).all();
+
+    if (results.length === 0) {
+      return c.json({ error: 'Evolution not available' }, 404);
+    }
+
+    const evolution = results[0];
+
+    if (trainerLevel < evolution.min_trainer_level) {
+      return c.json({ error: `Requires trainer level ${evolution.min_trainer_level}` }, 400);
+    }
+
+    await c.env.DB.prepare(
+      'UPDATE caught_pokemon SET pokemon_id = ? WHERE id = ?'
+    ).bind(evolution.to_id, caught_id).run();
+
+    const { results: teamRows } = await c.env.DB.prepare(
+      'SELECT * FROM team WHERE user_id = ? AND pokemon_id = ?'
+    ).bind(user_id, evolution.from_id).all();
+
+    let updatedTeamCount = 0;
+
+    for (const row of teamRows) {
+      const newMaxHP = getMaxHP({ power_level: evolution.to_power_level || 10 });
+      const ratio = row.maxHP > 0 ? row.currentHP / row.maxHP : 1;
+      const newCurrentHP = Math.max(0, Math.round(newMaxHP * ratio));
+
+      await c.env.DB.prepare(
+        `UPDATE team
+         SET pokemon_id = ?,
+             name = ?,
+             type = ?,
+             power_level = ?,
+             rarity = ?,
+             image_url = ?,
+             maxHP = ?,
+             currentHP = ?
+         WHERE id = ?`
+      ).bind(
+        evolution.to_id,
+        evolution.to_name,
+        evolution.to_type,
+        evolution.to_power_level,
+        evolution.to_rarity,
+        evolution.to_image_url,
+        newMaxHP,
+        newCurrentHP,
+        row.id
+      ).run();
+
+      updatedTeamCount += 1;
+    }
+
+    return c.json({
+      success: true,
+      caught_id,
+      evolved_to: {
+        id: evolution.to_id,
+        name: evolution.to_name,
+        type: evolution.to_type,
+        image_url: evolution.to_image_url,
+        rarity: evolution.to_rarity,
+        power_level: evolution.to_power_level,
+      },
+      team_updated: updatedTeamCount,
+    });
+  } catch (error) {
+    if (error.message.includes('no such table')) {
+      return c.json({ error: 'Evolution not available' }, 404);
+    }
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+app.get('/api/evolution/options', listEvolutionOptions);
+app.post('/api/evolution/evolve', evolvePokemon);
 // ================================================
 
 // ===== POKEMON CREATOR - AI GENERATION =====

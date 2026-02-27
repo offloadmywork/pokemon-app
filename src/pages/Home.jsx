@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import DailyQuestsPanel from "@/components/DailyQuestsPanel";
 import ChallengeTowerPanel from "@/components/ChallengeTowerPanel";
+import EvolutionPanel from "@/components/EvolutionPanel";
 import { featureFlags } from "@/config/featureFlags";
 
 export default function Home({ onNavigate }) {
@@ -41,6 +42,7 @@ export default function Home({ onNavigate }) {
           <DailyQuestsPanel />
           <div className="flex flex-col gap-6">
             <ChallengeTowerPanel />
+            <EvolutionPanel />
             {featureFlags.leaderboards && (
               <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl text-left">
                 <h2 className="text-2xl font-bold mb-2">🏆 Leaderboards</h2>

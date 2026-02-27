@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS caught_pokemon (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Evolution rules (by Pokemon name)
+CREATE TABLE IF NOT EXISTS pokemon_evolutions (
+  id TEXT PRIMARY KEY,
+  from_name TEXT NOT NULL,
+  to_name TEXT NOT NULL,
+  min_trainer_level INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(from_name)
+);
+
 -- Player progress table
 CREATE TABLE IF NOT EXISTS player_progress (
   id INTEGER PRIMARY KEY,
@@ -58,6 +68,8 @@ CREATE TABLE IF NOT EXISTS team (
 CREATE INDEX IF NOT EXISTS idx_pokemon_type ON pokemon(type);
 CREATE INDEX IF NOT EXISTS idx_pokemon_rarity ON pokemon(rarity);
 CREATE INDEX IF NOT EXISTS idx_caught_pokemon_date ON caught_pokemon(caught_date);
+CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_from_name ON pokemon_evolutions(from_name);
+CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_to_name ON pokemon_evolutions(to_name);
 
 -- User items table
 CREATE TABLE IF NOT EXISTS user_items (

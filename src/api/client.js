@@ -263,6 +263,21 @@ class PokemonAPI {
     });
   }
   // ====================
+
+  // ===== EVOLUTION API =====
+  async getEvolutionOptions() {
+    const userId = await this.getUserId();
+    return this.request(`/api/evolution/options?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async evolvePokemon(caughtId) {
+    const userId = await this.getUserId();
+    return this.request('/api/evolution/evolve', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, caught_id: caughtId }),
+    });
+  }
+  // ====================
 }
 
 export const pokemonAPI = new PokemonAPI();
