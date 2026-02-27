@@ -33,6 +33,36 @@ const STARTER_POKEMON = [
   }
 ];
 
+const DAILY_QUEST_TEMPLATES = [
+  {
+    key: 'catch-1',
+    title: 'Catch 1 Pokémon',
+    description: 'Catch a Pokémon today',
+    target: 1,
+    reward_xp: 25,
+    reward_item_id: 'pokeball',
+    reward_item_quantity: 1,
+  },
+  {
+    key: 'battle-1',
+    title: 'Win 1 Battle',
+    description: 'Win a battle today',
+    target: 1,
+    reward_xp: 40,
+    reward_item_id: 'potion',
+    reward_item_quantity: 1,
+  },
+  {
+    key: 'use-item',
+    title: 'Use 1 Item',
+    description: 'Use an item from your inventory',
+    target: 1,
+    reward_xp: 20,
+    reward_item_id: null,
+    reward_item_quantity: 0,
+  },
+];
+
 // Enable CORS
 app.use('/api/*', cors());
 
@@ -621,14 +651,133 @@ app.delete('/api/team/:pokemonId', async (c) => {
 });
 // ================================================
 
-// Serve static assets for non-API routes
-app.all('*', async (c) => {
-  const asset = c.env.ASSETS;
-  if (asset) {
-    return asset.fetch(c.req.raw);
+// ===== DAILY QUESTS API =====
+app.get('/api/quests/daily', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    let { results } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE user_id = ? AND quest_date = ? ORDER BY created_at ASC'
+    ).bind(user_id, today).all();
+
+    if (results.length === 0) {
+      for (const template of DAILY_QUEST_TEMPLATES) {
+        await c.env.DB.prepare(
+          `INSERT INTO daily_quests (id, user_id, quest_date, template_key, title, description, target, progress, reward_xp, reward_item_id, reward_item_quantity)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+           ON CONFLICT(user_id, quest_date, template_key) DO NOTHING`
+        ).bind(
+          uuidv4(),
+          user_id,
+          today,
+          template.key,
+          template.title,
+          template.description,
+          template.target,
+          template.reward_xp,
+          template.reward_item_id,
+          template.reward_item_quantity
+        ).run();
+      }
+
+      ({ results } = await c.env.DB.prepare(
+        'SELECT * FROM daily_quests WHERE user_id = ? AND quest_date = ? ORDER BY created_at ASC'
+      ).bind(user_id, today).all());
+    }
+
+    return c.json(results);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
   }
-  return c.notFound();
 });
+
+app.post('/api/quests/daily/:id/progress', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    const { amount = 1, user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE id = ? AND user_id = ?'
+    ).bind(id, user_id).all();
+
+    if (results.length === 0) {
+      return c.json({ error: 'Quest not found' }, 404);
+    }
+
+    const quest = results[0];
+    const safeAmount = Math.max(0, amount);
+    const newProgress = Math.min(quest.target, quest.progress + safeAmount);
+    const isCompleted = newProgress >= quest.target;
+
+    await c.env.DB.prepare(
+      `UPDATE daily_quests
+       SET progress = ?,
+           completed_at = CASE WHEN ? = 1 AND completed_at IS NULL THEN datetime('now') ELSE completed_at END
+       WHERE id = ?`
+    ).bind(newProgress, isCompleted ? 1 : 0, id).run();
+
+    const { results: updated } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE id = ?'
+    ).bind(id).all();
+
+    return c.json(updated[0]);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/quests/daily/:id/claim', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE id = ? AND user_id = ?'
+    ).bind(id, user_id).all();
+
+    if (results.length === 0) {
+      return c.json({ error: 'Quest not found' }, 404);
+    }
+
+    const quest = results[0];
+
+    if (!quest.completed_at) {
+      return c.json({ error: 'Quest not complete' }, 400);
+    }
+
+    if (quest.claimed_at) {
+      return c.json({ error: 'Quest already claimed' }, 400);
+    }
+
+    await c.env.DB.prepare(
+      'UPDATE daily_quests SET claimed_at = datetime(\'now\') WHERE id = ?'
+    ).bind(id).run();
+
+    const { results: updated } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE id = ?'
+    ).bind(id).all();
+
+    return c.json(updated[0]);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ================================================
 
 // ===== POKEMON CREATOR - AI GENERATION =====
 // Generate a Pokemon using AI
@@ -867,5 +1016,15 @@ app.put('/api/items/:itemId', async (c) => {
   }
 });
 // ====================
+
+// Serve static assets for non-API routes (must be last)
+app.all('*', async (c) => {
+  // Return 404 for unmatched API routes
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  // For non-API routes, the frontend handles routing
+  return c.html('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pokemon App</title><script type="module" src="/src/main.jsx"></script></head><body><div id="root"></div></body></html>');
+});
 
 export default app;

@@ -279,5 +279,49 @@ describe('PokemonAPI User Management', () => {
       expect(body.user_id).toBe('test-user');
       expect(body.name).toBe('TestMon');
     });
+
+    it('should include user_id in getDailyQuests request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await pokemonAPI.getDailyQuests();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/quests/daily?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in updateDailyQuestProgress request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'quest-1', progress: 1, target: 1 }),
+      });
+
+      await pokemonAPI.updateDailyQuestProgress('quest-1', 2);
+
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/quests/daily/quest-1/progress');
+
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ amount: 2, user_id: 'test-user' });
+    });
+
+    it('should include user_id in claimDailyQuest request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'quest-1', claimed_at: '2026-02-27T00:00:00Z' }),
+      });
+
+      await pokemonAPI.claimDailyQuest('quest-1');
+
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/quests/daily/quest-1/claim');
+
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ user_id: 'test-user' });
+    });
   });
 });

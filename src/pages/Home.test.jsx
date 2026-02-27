@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Home from './Home';
 
+vi.mock('@/components/DailyQuestsPanel', () => ({
+  default: () => <div>Daily Quests</div>,
+}));
+
 describe('Home Page', () => {
   it('should render the welcome message', () => {
     render(<Home onNavigate={vi.fn()} />);

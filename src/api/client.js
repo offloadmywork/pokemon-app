@@ -210,6 +210,29 @@ class PokemonAPI {
     });
   }
   // ====================
+
+  // ===== DAILY QUESTS API =====
+  async getDailyQuests() {
+    const userId = await this.getUserId();
+    return this.request(`/api/quests/daily?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async updateDailyQuestProgress(questId, amount = 1) {
+    const userId = await this.getUserId();
+    return this.request(`/api/quests/daily/${questId}/progress`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, user_id: userId }),
+    });
+  }
+
+  async claimDailyQuest(questId) {
+    const userId = await this.getUserId();
+    return this.request(`/api/quests/daily/${questId}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+  // ====================
 }
 
 export const pokemonAPI = new PokemonAPI();
