@@ -63,6 +63,15 @@ const DAILY_QUEST_TEMPLATES = [
   },
 ];
 
+const ensureUserExists = async (db, userId) => {
+  if (!userId) return;
+  await db.prepare(
+    `INSERT INTO users (id, created_at, last_active_at)
+     VALUES (?, datetime('now'), datetime('now'))
+     ON CONFLICT(id) DO UPDATE SET last_active_at = datetime('now')`
+  ).bind(userId).run();
+};
+
 // Enable CORS
 app.use('/api/*', cors());
 
@@ -81,30 +90,21 @@ app.post('/api/user', async (c) => {
     const { results: existing } = await c.env.DB.prepare(
       'SELECT id, created_at, last_active_at FROM users WHERE id = ?'
     ).bind(user_id).all();
-    
-    if (existing.length > 0) {
-      // Update last_active_at
-      await c.env.DB.prepare(
-        'UPDATE users SET last_active_at = datetime(\'now\') WHERE id = ?'
-      ).bind(user_id).run();
-      
-      return c.json({
-        user_id: existing[0].id,
-        created_at: existing[0].created_at,
-        last_active_at: existing[0].last_active_at,
-        existing: true
-      });
-    }
-    
-    // Create new user
-    await c.env.DB.prepare(
-      'INSERT INTO users (id, created_at, last_active_at) VALUES (?, datetime(\'now\'), datetime(\'now\'))'
-    ).bind(user_id).run();
-    
+
+    const wasExisting = existing.length > 0;
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const { results: refreshed } = await c.env.DB.prepare(
+      'SELECT id, created_at, last_active_at FROM users WHERE id = ?'
+    ).bind(user_id).all();
+
     return c.json({
-      user_id,
-      existing: false
-    }, 201);
+      user_id: refreshed[0].id,
+      created_at: refreshed[0].created_at,
+      last_active_at: refreshed[0].last_active_at,
+      existing: wasExisting
+    }, wasExisting ? 200 : 201);
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
@@ -276,6 +276,10 @@ app.post('/api/starter/claim', async (c) => {
   try {
     const data = await c.req.json();
     const user_id = data.user_id || null;
+
+    if (user_id) {
+      await ensureUserExists(c.env.DB, user_id);
+    }
     
     // Check if user already has Pokemon
     let countQuery = 'SELECT COUNT(*) as count FROM caught_pokemon';
@@ -652,12 +656,14 @@ app.delete('/api/team/:pokemonId', async (c) => {
 // ================================================
 
 // ===== DAILY QUESTS API =====
-app.get('/api/quests/daily', async (c) => {
+const listDailyQuests = async (c) => {
   try {
     const user_id = c.req.query('user_id');
     if (!user_id) {
       return c.json({ error: 'user_id is required' }, 400);
     }
+
+    await ensureUserExists(c.env.DB, user_id);
 
     const today = new Date().toISOString().slice(0, 10);
 
@@ -694,9 +700,9 @@ app.get('/api/quests/daily', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
-});
+};
 
-app.post('/api/quests/daily/:id/progress', async (c) => {
+const updateDailyQuestProgress = async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -734,9 +740,9 @@ app.post('/api/quests/daily/:id/progress', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
-});
+};
 
-app.post('/api/quests/daily/:id/claim', async (c) => {
+const claimDailyQuest = async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -776,7 +782,61 @@ app.post('/api/quests/daily/:id/claim', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
-});
+};
+
+const claimAllDailyQuests = async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { results: claimable } = await c.env.DB.prepare(
+      `SELECT id FROM daily_quests
+       WHERE user_id = ?
+         AND quest_date = ?
+         AND completed_at IS NOT NULL
+         AND claimed_at IS NULL`
+    ).bind(user_id, today).all();
+
+    if (claimable.length === 0) {
+      return c.json({ claimed: [], claimedCount: 0 });
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE daily_quests
+       SET claimed_at = datetime('now')
+       WHERE user_id = ?
+         AND quest_date = ?
+         AND completed_at IS NOT NULL
+         AND claimed_at IS NULL`
+    ).bind(user_id, today).run();
+
+    const placeholders = claimable.map(() => '?').join(', ');
+    const claimIds = claimable.map((quest) => quest.id);
+
+    const { results: updated } = await c.env.DB.prepare(
+      `SELECT * FROM daily_quests WHERE id IN (${placeholders})`
+    ).bind(...claimIds).all();
+
+    return c.json({ claimed: updated, claimedCount: updated.length });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+app.get('/api/quests/daily', listDailyQuests);
+app.get('/api/daily-quests', listDailyQuests);
+app.post('/api/quests/daily/:id/progress', updateDailyQuestProgress);
+app.post('/api/daily-quests/:id/progress', updateDailyQuestProgress);
+app.post('/api/quests/daily/:id/claim', claimDailyQuest);
+app.post('/api/daily-quests/:id/claim', claimDailyQuest);
+app.post('/api/quests/daily/claim-all', claimAllDailyQuests);
+app.post('/api/daily-quests/claim-all', claimAllDailyQuests);
 // ================================================
 
 // ===== POKEMON CREATOR - AI GENERATION =====

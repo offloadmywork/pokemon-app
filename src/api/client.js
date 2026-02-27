@@ -232,6 +232,14 @@ class PokemonAPI {
       body: JSON.stringify({ user_id: userId }),
     });
   }
+
+  async claimAllDailyQuests() {
+    const userId = await this.getUserId();
+    return this.request('/api/quests/daily/claim-all', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
   // ====================
 }
 

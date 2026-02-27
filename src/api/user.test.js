@@ -323,5 +323,20 @@ describe('PokemonAPI User Management', () => {
       const body = JSON.parse(fetchCall[1].body);
       expect(body).toEqual({ user_id: 'test-user' });
     });
+
+    it('should include user_id in claimAllDailyQuests request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ claimed: [], claimedCount: 0 }),
+      });
+
+      await pokemonAPI.claimAllDailyQuests();
+
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/quests/daily/claim-all');
+
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({ user_id: 'test-user' });
+    });
   });
 });
