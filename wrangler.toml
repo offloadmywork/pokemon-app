@@ -15,4 +15,4 @@ directory = "./dist"
 binding = "ASSETS"
 
 [vars]
-FEATURE_LEADERBOARDS = "false"
+FEATURE_LEADERBOARDS = "true"
