@@ -6,6 +6,7 @@ import BattleScreen from "@/components/BattleScreen";
 import { getMap, isWalkable, isGrass, isHealingSpot } from "@/game/maps";
 import { loadTeam, saveTeam, healTeam, isTeamAlive } from "@/game/team";
 import { loadProgress, saveProgress } from "@/game/progress";
+import playerSprite from "@/assets/player-spritesheet.svg";
 import {
   CATCH_RATES, TOTAL_POKEMON, STORAGE_KEY, LEVEL_CONFIG,
   XP_REWARDS, RARITY_WEIGHTS, rollRarity,
@@ -31,12 +32,52 @@ const DIR_DELTA = {
   right: { dx: 1, dy: 0 },
 };
 
-// Player emoji per direction
-const PLAYER_EMOJI = {
-  up: '🧑',
-  down: '🧒',
-  left: '🏃',
-  right: '🏃',
+// Player sprite sheet layout (2 columns x 4 rows)
+const SPRITE_COLS = 2;
+const SPRITE_ROWS = 4;
+const SPRITE_ROW_BY_DIR = {
+  down: 0,
+  left: 1,
+  right: 2,
+  up: 3,
+};
+
+// ═══════════════════════════════════════════
+// MINIMAP + POI CONFIG
+// ═══════════════════════════════════════════
+const MINIMAP_TILE = 6;
+const POI_ICONS = {
+  tower: '🗼',
+  quest: '❗',
+  rare: '💎',
+};
+
+const POIS_BY_LEVEL = {
+  1: [
+    { x: 9, y: 7, type: 'tower' },
+    { x: 15, y: 3, type: 'quest' },
+    { x: 4, y: 12, type: 'rare' },
+  ],
+  2: [
+    { x: 9, y: 7, type: 'tower' },
+    { x: 14, y: 4, type: 'quest' },
+    { x: 5, y: 10, type: 'rare' },
+  ],
+  3: [
+    { x: 9, y: 7, type: 'tower' },
+    { x: 2, y: 9, type: 'quest' },
+    { x: 16, y: 12, type: 'rare' },
+  ],
+  4: [
+    { x: 9, y: 7, type: 'tower' },
+    { x: 3, y: 2, type: 'quest' },
+    { x: 17, y: 10, type: 'rare' },
+  ],
+  5: [
+    { x: 9, y: 7, type: 'tower' },
+    { x: 2, y: 11, type: 'quest' },
+    { x: 16, y: 3, type: 'rare' },
+  ],
 };
 
 // ═══════════════════════════════════════════
@@ -51,7 +92,9 @@ export default function Browse({ onNavigate }) {
   // Map & player
   const mapConfig = useMemo(() => getMap(level), [level]);
   const [facing, setFacing] = useState('down');
+  const [isMoving, setIsMoving] = useState(false);
   const lastMoveRef = useRef(0);
+  const moveTimerRef = useRef(null);
 
   // Encounter state
   const [encounterPhase, setEncounterPhase] = useState(null); // null | 'flash' | 'battle' | 'no-team'
@@ -129,6 +172,9 @@ export default function Browse({ onNavigate }) {
 
     const { dx, dy } = DIR_DELTA[dir];
     setFacing(dir);
+    setIsMoving(true);
+    if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
+    moveTimerRef.current = setTimeout(() => setIsMoving(false), MOVE_COOLDOWN);
 
     setPlayerPos(prev => {
       const newX = prev.x + dx;
@@ -184,6 +230,10 @@ export default function Browse({ onNavigate }) {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [movePlayer]);
+
+  useEffect(() => () => {
+    if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
+  }, []);
 
   // ═══════════════════════════════════════════
   // ENCOUNTERS
@@ -289,10 +339,44 @@ export default function Browse({ onNavigate }) {
   const map = mapConfig.data;
   const mapRows = map.length;
   const mapCols = map[0].length;
+  const minimapW = mapCols * MINIMAP_TILE;
+  const minimapH = mapRows * MINIMAP_TILE;
+  const pois = POIS_BY_LEVEL[level] || [];
 
-  // Camera: center on player, clamped to edges
-  const cameraX = Math.max(0, Math.min(playerPos.x * TILE - (VIEWPORT_W / 2) + (TILE / 2), mapCols * TILE - VIEWPORT_W));
-  const cameraY = Math.max(0, Math.min(playerPos.y * TILE - (VIEWPORT_H / 2) + (TILE / 2), mapRows * TILE - VIEWPORT_H));
+  // Camera: center on player, clamped to edges (target)
+  const targetCameraX = Math.max(0, Math.min(playerPos.x * TILE - (VIEWPORT_W / 2) + (TILE / 2), mapCols * TILE - VIEWPORT_W));
+  const targetCameraY = Math.max(0, Math.min(playerPos.y * TILE - (VIEWPORT_H / 2) + (TILE / 2), mapRows * TILE - VIEWPORT_H));
+
+  // Smooth camera follow
+  const [camera, setCamera] = useState(() => ({ x: targetCameraX, y: targetCameraY }));
+  const cameraRef = useRef({ x: targetCameraX, y: targetCameraY });
+  const cameraAnimRef = useRef(null);
+
+  useEffect(() => {
+    cameraRef.current = camera;
+  }, [camera]);
+
+  useEffect(() => {
+    const raf = (cb) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(cb) : setTimeout(cb, 16));
+    const caf = (id) => (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame(id) : clearTimeout(id));
+
+    if (cameraAnimRef.current) caf(cameraAnimRef.current);
+    const lerp = 0.18;
+    const step = () => {
+      const { x, y } = cameraRef.current;
+      const nextX = x + (targetCameraX - x) * lerp;
+      const nextY = y + (targetCameraY - y) * lerp;
+      const snap = Math.abs(targetCameraX - nextX) < 0.25 && Math.abs(targetCameraY - nextY) < 0.25;
+      const next = snap ? { x: targetCameraX, y: targetCameraY } : { x: nextX, y: nextY };
+      cameraRef.current = next;
+      setCamera(next);
+      if (!snap) {
+        cameraAnimRef.current = raf(step);
+      }
+    };
+    cameraAnimRef.current = raf(step);
+    return () => caf(cameraAnimRef.current);
+  }, [targetCameraX, targetCameraY]);
 
   // ═══════════════════════════════════════════
   // TILE RENDERER
@@ -419,14 +503,15 @@ export default function Browse({ onNavigate }) {
               position: 'absolute',
               width: mapCols * TILE,
               height: mapRows * TILE,
-              transform: `translate(${-cameraX}px, ${-cameraY}px)`,
-              transition: 'transform 0.15s ease-out',
+              transform: `translate(${-camera.x}px, ${-camera.y}px)`,
             }}
           >
             {/* Tiles */}
             {map.map((row, y) =>
               row.map((tileType, x) => {
                 const t = tileTypeToTheme[tileType] || theme.path;
+                const isWaterTile = tileType === 3;
+                const isHealTile = tileType === 5;
                 return (
                   <div
                     key={`${x}-${y}`}
@@ -443,7 +528,7 @@ export default function Browse({ onNavigate }) {
                       fontSize: tileType === 2 || tileType === 3 || tileType === 4 ? '28px' : '18px',
                       overflow: 'hidden',
                     }}
-                    className={t.animClass || ''}
+                    className={`tile ${t.animClass || ''} ${isWaterTile ? 'water-shimmer' : ''} ${isHealTile ? 'heal-sparkle' : ''}`}
                   >
                     {t.emoji && <span className={t.animClass || ''}>{t.emoji}</span>}
                   </div>
@@ -459,17 +544,102 @@ export default function Browse({ onNavigate }) {
                 top: playerPos.y * TILE,
                 width: TILE,
                 height: TILE,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '32px',
                 zIndex: 10,
                 transition: 'left 0.15s ease-out, top 0.15s ease-out',
-                transform: facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
                 filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
               }}
             >
-              {PLAYER_EMOJI[facing]}
+              <div
+                className={`player-sprite ${isMoving ? 'player-walk' : ''}`}
+                style={{
+                  width: TILE,
+                  height: TILE,
+                  backgroundImage: `url(${playerSprite})`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: `${SPRITE_COLS * TILE}px ${SPRITE_ROWS * TILE}px`,
+                  backgroundPositionX: '0px',
+                  backgroundPositionY: `${-SPRITE_ROW_BY_DIR[facing] * TILE}px`,
+                  imageRendering: 'pixelated',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Minimap */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              width: minimapW + 10,
+              height: minimapH + 10,
+              background: 'rgba(0,0,0,0.45)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 10,
+              padding: 5,
+              zIndex: 15,
+              boxShadow: '0 6px 14px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(6px)',
+            }}
+          >
+            <div style={{ position: 'relative', width: minimapW, height: minimapH }}>
+              {map.map((row, y) =>
+                row.map((tileType, x) => {
+                  const t = tileTypeToTheme[tileType] || theme.path;
+                  return (
+                    <div
+                      key={`mini-${x}-${y}`}
+                      style={{
+                        position: 'absolute',
+                        left: x * MINIMAP_TILE,
+                        top: y * MINIMAP_TILE,
+                        width: MINIMAP_TILE,
+                        height: MINIMAP_TILE,
+                        backgroundColor: t.bg,
+                        opacity: tileType === 2 || tileType === 3 || tileType === 4 ? 0.75 : 1,
+                      }}
+                    />
+                  );
+                })
+              )}
+
+              {/* POI markers */}
+              {pois.map((poi, i) => (
+                <div
+                  key={`poi-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: poi.x * MINIMAP_TILE - 1,
+                    top: poi.y * MINIMAP_TILE - 3,
+                    fontSize: 10,
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+                  }}
+                  title={poi.type}
+                >
+                  {POI_ICONS[poi.type]}
+                </div>
+              ))}
+
+              {/* Player dot */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: playerPos.x * MINIMAP_TILE + 1,
+                  top: playerPos.y * MINIMAP_TILE + 1,
+                  width: MINIMAP_TILE - 2,
+                  height: MINIMAP_TILE - 2,
+                  borderRadius: 999,
+                  background: '#22c55e',
+                  boxShadow: '0 0 6px rgba(34,197,94,0.9)',
+                  border: '1px solid rgba(255,255,255,0.8)',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: 10, color: '#e5e7eb' }}>
+              <span>{POI_ICONS.tower} Tower</span>
+              <span>{POI_ICONS.quest} Quest</span>
+              <span>{POI_ICONS.rare} Rare</span>
             </div>
           </div>
 
@@ -644,6 +814,18 @@ const animationStyles = `
     to { transform: rotate(360deg) scale(1); }
   }
 
+  /* Player sprite animations */
+  .player-sprite {
+    background-repeat: no-repeat;
+  }
+  .player-walk {
+    animation: sprite-walk 0.4s steps(2) infinite;
+  }
+  @keyframes sprite-walk {
+    from { background-position-x: 0px; }
+    to { background-position-x: -48px; }
+  }
+
   /* Tile animations */
   .grass-sway span {
     animation: tile-sway 2s ease-in-out infinite;
@@ -663,12 +845,54 @@ const animationStyles = `
     50% { transform: translateY(-2px); }
   }
 
+  .water-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 45%, rgba(255,255,255,0) 80%);
+    animation: water-shimmer 2.6s ease-in-out infinite;
+    mix-blend-mode: screen;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  @keyframes water-shimmer {
+    0% { transform: translateX(-120%); }
+    50% { transform: translateX(0%); }
+    100% { transform: translateX(120%); }
+  }
+
   .heal-glow {
     animation: tile-heal 2s ease-in-out infinite;
   }
   @keyframes tile-heal {
     0%, 100% { box-shadow: inset 0 0 10px rgba(236,72,153,0.3); }
     50% { box-shadow: inset 0 0 20px rgba(236,72,153,0.6); }
+  }
+
+  .heal-sparkle::before,
+  .heal-sparkle::after {
+    content: '✨';
+    position: absolute;
+    font-size: 12px;
+    opacity: 0;
+    animation: heal-sparkle 2s ease-in-out infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(236,72,153,0.6));
+  }
+  .heal-sparkle::before {
+    top: 6px;
+    left: 6px;
+    animation-delay: 0.2s;
+  }
+  .heal-sparkle::after {
+    bottom: 6px;
+    right: 6px;
+    font-size: 10px;
+    animation-delay: 1s;
+  }
+  @keyframes heal-sparkle {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    50% { opacity: 1; transform: scale(1.2); }
   }
 
   .portal-pulse {
