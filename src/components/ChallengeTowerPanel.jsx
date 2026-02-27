@@ -47,8 +47,8 @@ export default function ChallengeTowerPanel({ apiClient = pokemonAPI }) {
   }
 
   return (
-    <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl text-left">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <h2 className="text-2xl font-bold">🏯 Challenge Tower</h2>
         {progress && (
           <span className="text-sm text-white/80">Best: Floor {progress.best_floor}</span>
@@ -56,7 +56,7 @@ export default function ChallengeTowerPanel({ apiClient = pokemonAPI }) {
       </div>
 
       {currentFloor ? (
-        <div className="bg-white/15 rounded-2xl p-4 flex items-center justify-between gap-4 mb-4">
+        <div className="bg-white/15 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <div className="font-semibold">Floor {currentFloor.floor}: {currentFloor.name}</div>
             <div className="text-sm text-white/80">Difficulty {currentFloor.difficulty}</div>
@@ -64,7 +64,7 @@ export default function ChallengeTowerPanel({ apiClient = pokemonAPI }) {
           </div>
           <Button
             onClick={handleComplete}
-            className="bg-yellow-400 hover:bg-yellow-500 text-purple-900 font-bold"
+            className="bg-yellow-400 hover:bg-yellow-500 text-purple-900 font-bold w-full sm:w-auto"
           >
             Complete
           </Button>

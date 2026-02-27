@@ -39,6 +39,36 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
     [activeKey]
   );
 
+  const sortedEntries = useMemo(() => {
+    const list = [...entries];
+    if (activeKey === 'level') {
+      return list.sort((a, b) => {
+        const levelDiff = (b.detail?.level ?? 0) - (a.detail?.level ?? 0);
+        if (levelDiff !== 0) return levelDiff;
+        return (b.detail?.xp ?? 0) - (a.detail?.xp ?? 0);
+      });
+    }
+    if (activeKey === 'caught') {
+      return list.sort(
+        (a, b) => (b.detail?.caught ?? b.score ?? 0) - (a.detail?.caught ?? a.score ?? 0)
+      );
+    }
+    if (activeKey === 'tower') {
+      return list.sort(
+        (a, b) =>
+          (b.detail?.best_floor ?? b.score ?? 0) - (a.detail?.best_floor ?? a.score ?? 0)
+      );
+    }
+    return list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  }, [entries, activeKey]);
+
+  const getDisplayScore = (entry) => {
+    if (activeKey === 'level') return entry.detail?.level ?? entry.score;
+    if (activeKey === 'caught') return entry.detail?.caught ?? entry.score;
+    if (activeKey === 'tower') return entry.detail?.best_floor ?? entry.score;
+    return entry.score;
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -125,16 +155,16 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
             </div>
           )}
 
-          {!isLoading && !error && entries.length > 0 && (
+          {!isLoading && !error && sortedEntries.length > 0 && (
             <div className="space-y-3">
-              {entries.map((entry) => (
+              {sortedEntries.map((entry, index) => (
                 <div
                   key={`${activeKey}-${entry.user_id}`}
                   className="bg-white/15 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 border border-white/20"
                 >
                   <div className="flex items-center gap-3">
                     <div className="text-2xl font-black text-yellow-300 w-10 text-center">
-                      {entry.rank}
+                      {index + 1}
                     </div>
                     <div>
                       <div className="text-white font-bold text-lg">
@@ -146,7 +176,7 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
                     </div>
                   </div>
                   <div className="text-white font-black text-lg">
-                    {entry.score}
+                    {getDisplayScore(entry)}
                   </div>
                 </div>
               ))}

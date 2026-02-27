@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { v4 as uuidv4 } from 'uuid';
+import { buildChallengeTowerFloors, CHALLENGE_TOWER_MAX_FLOORS } from '../src/game/challengeTower.js';
 
 const app = new Hono();
 
@@ -64,14 +65,7 @@ const DAILY_QUEST_TEMPLATES = [
 ];
 
 
-const CHALLENGE_TOWER_FLOORS = [
-  { floor: 1, name: 'Sprout Steps', difficulty: 1, reward_xp: 15 },
-  { floor: 2, name: 'Ember Rise', difficulty: 2, reward_xp: 25 },
-  { floor: 3, name: 'Torrent Gate', difficulty: 3, reward_xp: 35 },
-  { floor: 4, name: 'Storm Pinnacle', difficulty: 4, reward_xp: 45 },
-  { floor: 5, name: 'Dragon Summit', difficulty: 5, reward_xp: 60 },
-];
-
+const CHALLENGE_TOWER_FLOORS = buildChallengeTowerFloors(CHALLENGE_TOWER_MAX_FLOORS);
 
 
 const ensureUserExists = async (db, userId) => {

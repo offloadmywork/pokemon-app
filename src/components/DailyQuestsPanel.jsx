@@ -40,7 +40,7 @@ export default function DailyQuestsPanel({ apiClient = pokemonAPI }) {
   }
 
   return (
-    <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl">
+    <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl text-left">
       <h2 className="text-2xl font-bold mb-4">🗓️ Daily Quests</h2>
       <div className="space-y-4">
         {quests.map((quest) => {
@@ -48,13 +48,16 @@ export default function DailyQuestsPanel({ apiClient = pokemonAPI }) {
           const isClaimed = Boolean(quest.claimed_at);
 
           return (
-            <div key={quest.id} className="bg-white/15 rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div
+              key={quest.id}
+              className="bg-white/15 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
               <div>
                 <div className="font-semibold">{quest.title}</div>
                 <div className="text-sm text-white/80">{quest.description}</div>
                 <div className="text-sm mt-1">{quest.progress} / {quest.target}</div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-row sm:flex-col sm:items-end items-center gap-2 sm:text-right">
                 {isCompleted ? (
                   <span className="text-sm font-semibold">✅ Complete</span>
                 ) : (
