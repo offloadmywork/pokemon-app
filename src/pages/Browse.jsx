@@ -7,6 +7,16 @@ import { getMap, isWalkable, isGrass, isHealingSpot } from "@/game/maps";
 import { loadTeam, saveTeam, healTeam, isTeamAlive } from "@/game/team";
 import { loadProgress, saveProgress } from "@/game/progress";
 import playerSprite from "@/assets/player-spritesheet.svg";
+import grassTile from "@/assets/tiles/grass.svg";
+import treeTile from "@/assets/tiles/tree.svg";
+import waterTile from "@/assets/tiles/water.svg";
+import rockTile from "@/assets/tiles/rock.svg";
+import healTile from "@/assets/tiles/heal.svg";
+import portalTile from "@/assets/tiles/portal.svg";
+import poiTower from "@/assets/poi/tower.svg";
+import poiQuest from "@/assets/poi/quest.svg";
+import poiRare from "@/assets/poi/rare.svg";
+import tileSprite from "@/assets/tileset.svg";
 import {
   CATCH_RATES, TOTAL_POKEMON, STORAGE_KEY, LEVEL_CONFIG,
   XP_REWARDS, RARITY_WEIGHTS, rollRarity,
@@ -35,6 +45,18 @@ const DIR_DELTA = {
 // Player sprite sheet layout (2 columns x 4 rows)
 const SPRITE_COLS = 2;
 const SPRITE_ROWS = 4;
+
+// Tile sprite sheet layout (7 columns x 1 row)
+const TILESET_COLS = 7;
+const TILE_INDEX = {
+  path: 0,
+  grass: 1,
+  tree: 2,
+  water: 3,
+  rock: 4,
+  heal: 5,
+  portal: 6,
+};
 const SPRITE_ROW_BY_DIR = {
   down: 0,
   left: 1,
@@ -46,10 +68,31 @@ const SPRITE_ROW_BY_DIR = {
 // MINIMAP + POI CONFIG
 // ═══════════════════════════════════════════
 const MINIMAP_TILE = 6;
-const POI_ICONS = {
-  tower: '🗼',
-  quest: '❗',
-  rare: '💎',
+const POI_MARKERS = {
+  tower: { shape: 'square', color: '#f59e0b', label: 'Tower' },
+  quest: { shape: 'triangle', color: '#ef4444', label: 'Quest' },
+  rare: { shape: 'diamond', color: '#22c55e', label: 'Rare' },
+};
+
+const getPoiMarkerStyle = (type, size = 6) => {
+  const marker = POI_MARKERS[type];
+  if (!marker) return {};
+  const style = {
+    width: size,
+    height: size,
+    background: marker.color,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.8)',
+  };
+  if (marker.shape === 'square') {
+    style.borderRadius = 1;
+  }
+  if (marker.shape === 'triangle') {
+    style.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+  }
+  if (marker.shape === 'diamond') {
+    style.transform = 'rotate(45deg)';
+  }
+  return style;
 };
 
 const POIS_BY_LEVEL = {
@@ -392,6 +435,16 @@ export default function Browse({ onNavigate }) {
     6: theme.portal,
   };
 
+  const tileTypeToIndex = {
+    0: TILE_INDEX.path,
+    1: TILE_INDEX.grass,
+    2: TILE_INDEX.tree,
+    3: TILE_INDEX.water,
+    4: TILE_INDEX.rock,
+    5: TILE_INDEX.heal,
+    6: TILE_INDEX.portal,
+  };
+
   // ═══════════════════════════════════════════
   // LOADING SCREEN
   // ═══════════════════════════════════════════
@@ -522,16 +575,15 @@ export default function Browse({ onNavigate }) {
                       width: TILE,
                       height: TILE,
                       backgroundColor: t.bg,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: tileType === 2 || tileType === 3 || tileType === 4 ? '28px' : '18px',
+                      backgroundImage: `url(${tileSprite})`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: `${TILESET_COLS * TILE}px ${TILE}px`,
+                      backgroundPosition: `-${tileTypeToIndex[tileType] * TILE}px 0px`,
+                      imageRendering: 'pixelated',
                       overflow: 'hidden',
                     }}
                     className={`tile ${t.animClass || ''} ${isWaterTile ? 'water-shimmer' : ''} ${isHealTile ? 'heal-sparkle' : ''}`}
-                  >
-                    {t.emoji && <span className={t.animClass || ''}>{t.emoji}</span>}
-                  </div>
+                  />
                 );
               })
             )}
@@ -609,15 +661,13 @@ export default function Browse({ onNavigate }) {
                   key={`poi-${i}`}
                   style={{
                     position: 'absolute',
-                    left: poi.x * MINIMAP_TILE - 1,
-                    top: poi.y * MINIMAP_TILE - 3,
-                    fontSize: 10,
-                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+                    left: poi.x * MINIMAP_TILE,
+                    top: poi.y * MINIMAP_TILE,
+                    transform: 'translate(-1px, -2px)',
+                    ...getPoiMarkerStyle(poi.type, 7),
                   }}
                   title={poi.type}
-                >
-                  {POI_ICONS[poi.type]}
-                </div>
+                />
               ))}
 
               {/* Player dot */}
@@ -636,10 +686,13 @@ export default function Browse({ onNavigate }) {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: 10, color: '#e5e7eb' }}>
-              <span>{POI_ICONS.tower} Tower</span>
-              <span>{POI_ICONS.quest} Quest</span>
-              <span>{POI_ICONS.rare} Rare</span>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 10, color: '#e5e7eb' }}>
+              {Object.entries(POI_MARKERS).map(([type, marker]) => (
+                <span key={`legend-${type}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ display: 'inline-block', ...getPoiMarkerStyle(type, 8) }} />
+                  {marker.label}
+                </span>
+              ))}
             </div>
           </div>
 

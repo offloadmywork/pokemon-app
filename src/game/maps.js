@@ -117,14 +117,14 @@ export const MAPS = [
     startX: 1,
     startY: 1,
     theme: {
-      // Tile colors/emojis per tile type for this level
-      path: { bg: '#8B7355', emoji: '' },
-      grass: { bg: '#2d5a1e', emoji: '🌿', animClass: 'grass-sway' },
+      // Tile colors per tile type for this level
+      path: { bg: '#8B7355', emoji: '🟫' },
+      grass: { bg: '#2d5a1e', animClass: 'grass-sway', emoji: '🌿' },
       tree: { bg: '#1a3a0a', emoji: '🌳' },
-      water: { bg: '#1e40af', emoji: '💧', animClass: 'water-wave' },
+      water: { bg: '#1e40af', animClass: 'water-wave', emoji: '💧' },
       rock: { bg: '#57534e', emoji: '🪨' },
-      heal: { bg: '#fdf2f8', emoji: '✨', animClass: 'heal-glow' },
-      portal: { bg: '#fbbf24', emoji: '🌟', animClass: 'portal-pulse' },
+      heal: { bg: '#fdf2f8', animClass: 'heal-glow', emoji: '✨' },
+      portal: { bg: '#fbbf24', animClass: 'portal-pulse', emoji: '🌀' },
     },
   },
   {
@@ -132,13 +132,13 @@ export const MAPS = [
     startX: 1,
     startY: 1,
     theme: {
-      path: { bg: '#2d1b69', emoji: '' },
-      grass: { bg: '#3b1f8e', emoji: '💎', animClass: 'grass-sway' },
-      tree: { bg: '#1a1040', emoji: '🔮' },       // crystals instead of trees
-      water: { bg: '#312e81', emoji: '💧', animClass: 'water-wave' },
+      path: { bg: '#2d1b69', emoji: '🟪' },
+      grass: { bg: '#3b1f8e', animClass: 'grass-sway', emoji: '🪻' },
+      tree: { bg: '#1a1040', emoji: '💎' },       // crystals instead of trees
+      water: { bg: '#312e81', animClass: 'water-wave', emoji: '🌌' },
       rock: { bg: '#1e1250', emoji: '💜' },         // crystal formations
-      heal: { bg: '#c084fc', emoji: '✨', animClass: 'heal-glow' },
-      portal: { bg: '#a855f7', emoji: '🌟', animClass: 'portal-pulse' },
+      heal: { bg: '#c084fc', animClass: 'heal-glow', emoji: '✨' },
+      portal: { bg: '#a855f7', animClass: 'portal-pulse', emoji: '🌀' },
     },
   },
   {
@@ -146,13 +146,13 @@ export const MAPS = [
     startX: 1,
     startY: 1,
     theme: {
-      path: { bg: '#4b5563', emoji: '' },
-      grass: { bg: '#374151', emoji: '⚡', animClass: 'grass-sway' },
-      tree: { bg: '#1f2937', emoji: '🌩️' },       // storm clouds
-      water: { bg: '#1e3a8a', emoji: '🌊', animClass: 'water-wave' },
-      rock: { bg: '#292524', emoji: '⛰️' },
-      heal: { bg: '#93c5fd', emoji: '✨', animClass: 'heal-glow' },
-      portal: { bg: '#3b82f6', emoji: '🌟', animClass: 'portal-pulse' },
+      path: { bg: '#4b5563', emoji: '🪨' },
+      grass: { bg: '#374151', animClass: 'grass-sway', emoji: '⚡' },
+      tree: { bg: '#1f2937', emoji: '☁️' },       // storm clouds
+      water: { bg: '#1e3a8a', animClass: 'water-wave', emoji: '🌊' },
+      rock: { bg: '#292524', emoji: '🪨' },
+      heal: { bg: '#93c5fd', animClass: 'heal-glow', emoji: '✨' },
+      portal: { bg: '#3b82f6', animClass: 'portal-pulse', emoji: '🌀' },
     },
   },
   {
@@ -160,13 +160,13 @@ export const MAPS = [
     startX: 1,
     startY: 1,
     theme: {
-      path: { bg: '#78350f', emoji: '' },
-      grass: { bg: '#92400e', emoji: '🔥', animClass: 'grass-sway' },
-      tree: { bg: '#451a03', emoji: '🌋' },        // volcanic rocks
-      water: { bg: '#dc2626', emoji: '🔥', animClass: 'water-wave' }, // LAVA!
+      path: { bg: '#78350f', emoji: '🟫' },
+      grass: { bg: '#92400e', animClass: 'grass-sway', emoji: '🌾' },
+      tree: { bg: '#451a03', emoji: '🪨' },        // volcanic rocks
+      water: { bg: '#dc2626', animClass: 'water-wave', emoji: '🔥' }, // LAVA!
       rock: { bg: '#44403c', emoji: '🪨' },
-      heal: { bg: '#fdba74', emoji: '✨', animClass: 'heal-glow' },
-      portal: { bg: '#f97316', emoji: '🌟', animClass: 'portal-pulse' },
+      heal: { bg: '#fdba74', animClass: 'heal-glow', emoji: '✨' },
+      portal: { bg: '#f97316', animClass: 'portal-pulse', emoji: '🌀' },
     },
   },
   {
@@ -174,13 +174,13 @@ export const MAPS = [
     startX: 1,
     startY: 1,
     theme: {
-      path: { bg: '#fef3c7', emoji: '' },
-      grass: { bg: '#d1fae5', emoji: '🌸', animClass: 'grass-sway' },
+      path: { bg: '#fef3c7', emoji: '🟨' },
+      grass: { bg: '#d1fae5', animClass: 'grass-sway', emoji: '🍃' },
       tree: { bg: '#bfdbfe', emoji: '☁️' },         // clouds
-      water: { bg: '#93c5fd', emoji: '☁️', animClass: 'water-wave' }, // sky/void
-      rock: { bg: '#fde68a', emoji: '🏛️' },         // temple pillars
-      heal: { bg: '#fef9c3', emoji: '✨', animClass: 'heal-glow' },
-      portal: { bg: '#facc15', emoji: '🌟', animClass: 'portal-pulse' },
+      water: { bg: '#93c5fd', animClass: 'water-wave', emoji: '🌤️' }, // sky/void
+      rock: { bg: '#fde68a', emoji: '🪨' },         // temple pillars
+      heal: { bg: '#fef9c3', animClass: 'heal-glow', emoji: '✨' },
+      portal: { bg: '#facc15', animClass: 'portal-pulse', emoji: '🌀' },
     },
   },
 ];

@@ -24,6 +24,17 @@ describe('DailyQuestsPanel', () => {
     expect(screen.getByText('0 / 1')).toBeInTheDocument();
   });
 
+  it('does not show claim button for incomplete quests', async () => {
+    mockApiClient.getDailyQuests.mockResolvedValue([
+      { id: 'q1', title: 'Catch 1 Pokémon', description: 'Catch a Pokémon', progress: 0, target: 1, claimed_at: null },
+    ]);
+
+    render(<DailyQuestsPanel apiClient={mockApiClient} />);
+
+    await screen.findByText('Catch 1 Pokémon');
+    expect(screen.queryByRole('button', { name: /claim/i })).toBeNull();
+  });
+
   it('allows claiming a completed quest', async () => {
     mockApiClient.getDailyQuests.mockResolvedValue([
       { id: 'q1', title: 'Catch 1 Pokémon', description: 'Catch a Pokémon', progress: 1, target: 1, claimed_at: null },

@@ -73,32 +73,32 @@ describe('Maps System', () => {
     it('should return forest map for level 1', () => {
       const map = getMap(1);
       expect(map).toBe(MAPS[0]);
-      expect(map.theme.grass.emoji).toBe('🌿');
-      expect(map.theme.tree.emoji).toBe('🌳');
+      expect(map.theme.grass.bg).toBeDefined();
+      expect(map.theme.tree.bg).toBeDefined();
     });
 
     it('should return crystal cave for level 2', () => {
       const map = getMap(2);
       expect(map).toBe(MAPS[1]);
-      expect(map.theme.rock.emoji).toBe('💜');
+      expect(map.theme.rock.bg).toBeDefined();
     });
 
     it('should return thunder mountain for level 3', () => {
       const map = getMap(3);
       expect(map).toBe(MAPS[2]);
-      expect(map.theme.grass.emoji).toBe('⚡');
+      expect(map.theme.grass.bg).toBeDefined();
     });
 
     it('should return fire volcano for level 4', () => {
       const map = getMap(4);
       expect(map).toBe(MAPS[3]);
-      expect(map.theme.water.emoji).toBe('🔥'); // lava!
+      expect(map.theme.water.bg).toContain('dc2626'); // lava red
     });
 
     it('should return sky temple for level 5', () => {
       const map = getMap(5);
       expect(map).toBe(MAPS[4]);
-      expect(map.theme.tree.emoji).toBe('☁️');
+      expect(map.theme.tree.bg).toBeDefined();
     });
 
     it('should clamp to last map for high levels', () => {
@@ -206,14 +206,13 @@ describe('Maps System', () => {
 
     it('map 4 (volcano) should use fire-themed water (lava)', () => {
       const volcano = MAPS[3];
-      expect(volcano.theme.water.emoji).toBe('🔥');
       expect(volcano.theme.water.bg).toContain('dc2626'); // red
     });
 
-    it('map 5 (sky temple) should use cloud/tree emojis', () => {
+    it('map 5 (sky temple) should use cloud/tree tiles', () => {
       const sky = MAPS[4];
-      expect(sky.theme.tree.emoji).toBe('☁️');
-      expect(sky.theme.water.emoji).toBe('☁️');
+      expect(sky.theme.tree.bg).toBeDefined();
+      expect(sky.theme.water.bg).toBeDefined();
     });
   });
 

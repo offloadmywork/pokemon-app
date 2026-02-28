@@ -60,4 +60,24 @@ describe('DailyQuestsViewModel', () => {
 
     expect(vm.quests[0].claimed_at).toBe('2026-02-27T00:00:00Z');
   });
+
+  it('returns null and keeps quests when update progress fails', async () => {
+    vm.quests = [{ id: 'q1', title: 'Catch 1 Pokémon', progress: 0, target: 1 }];
+    mockApiClient.updateDailyQuestProgress.mockRejectedValue(new Error('Nope'));
+
+    const result = await vm.updateProgress('q1', 1);
+
+    expect(result).toBeNull();
+    expect(vm.quests[0].progress).toBe(0);
+  });
+
+  it('returns null and keeps quests when claim fails', async () => {
+    vm.quests = [{ id: 'q1', progress: 1, target: 1, claimed_at: null }];
+    mockApiClient.claimDailyQuest.mockRejectedValue(new Error('Nope'));
+
+    const result = await vm.claimQuest('q1');
+
+    expect(result).toBeNull();
+    expect(vm.quests[0].claimed_at).toBeNull();
+  });
 });
