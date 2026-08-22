@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { pokemonAPI } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getPokemonImage, typeEmojis, rarityConfig } from "@/game/constants";
+import { getPokemonImage, rarityConfig } from "@/game/constants";
+import TypeBadge from "@/components/TypeBadge";
 import { getMaxHP } from "@/game/battle";
 import { 
   loadTeam,
@@ -404,7 +405,7 @@ export default function Collection({ onNavigate }) {
                     </span>
                     {teamSynergy.types.map((type) => (
                       <span key={type} className="pixel-badge px-2 py-1 text-[10px] font-black">
-                        {typeEmojis[type] || '⚪'} {type}
+                        <TypeBadge type={type} className="mr-1 align-middle" /> {type}
                       </span>
                     ))}
                   </div>
@@ -426,7 +427,7 @@ export default function Collection({ onNavigate }) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
-                          <span className="text-lg">{typeEmojis[p.type] || '⚪'}</span>
+                          <span className="text-lg"><TypeBadge type={p.type} /></span>
                           <span className="font-black pixel-text text-sm truncate">{p.name}</span>
                         </div>
                         {/* HP Bar */}
@@ -649,7 +650,7 @@ export default function Collection({ onNavigate }) {
                           )}
                         </h2>
                         <div className="flex items-center justify-center gap-2 mb-2">
-                          <span className="text-lg">{typeEmojis[pokemon.type]}</span>
+                          <span className="text-lg"><TypeBadge type={pokemon.type} /></span>
                           <span className="text-xs font-bold pixel-muted">{pokemon.type}</span>
                         </div>
                         <p className="text-[10px] pixel-muted mb-2">

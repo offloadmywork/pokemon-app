@@ -31,7 +31,7 @@ import {
   CATCH_RATES, TOTAL_POKEMON, STORAGE_KEY, LEVEL_CONFIG,
   XP_REWARDS, RARITY_WEIGHTS, rollRarity,
   getLevelFromXP, getLevelConfig, getNextLevelXP,
-  getPokemonImage, typeEmojis, rarityConfig,
+  getPokemonImage, rarityConfig,
 } from "@/game/constants";
 
 // ═══════════════════════════════════════════

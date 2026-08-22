@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { calculateDamage, getMaxHP, getCatchRate, getFaintedCatchRate } from "@/game/battle";
-import { getPokemonImage, typeEmojis, rarityConfig, XP_REWARDS } from "@/game/constants";
+import { getPokemonImage, rarityConfig, XP_REWARDS } from "@/game/constants";
 import { getSeasonalCatchRate, getSeasonalXpReward } from "@/game/seasonalEvents";
 import { getCosmetic } from "@/game/cosmetics";
+import TypeBadge from "@/components/TypeBadge";
 import { playSfx, vibrate } from "@/game/audio";
 
 // ═══════════════════════════════════════════
@@ -524,7 +525,7 @@ export default function BattleScreen({
           <div className="pixel-panel p-3 max-w-[260px] ml-auto mb-2">
             <div className="flex items-center justify-between mb-1">
               <span className="font-black text-sm md:text-base pixel-text truncate">
-                {typeEmojis[wildPokemon.type] || '⚪'} {wildPokemon.name}
+                <TypeBadge type={wildPokemon.type} className="mr-1 align-middle" /> {wildPokemon.name}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: rarity.color + '30', color: rarity.color }}>
                 Lv.{Math.floor((wildPokemon.power_level || 10) / 5) + 1}
@@ -599,7 +600,7 @@ export default function BattleScreen({
             <div className="pixel-panel p-3 max-w-[260px]">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-black text-sm md:text-base pixel-text truncate">
-                  {typeEmojis[activePokemon.type] || '⚪'} {activePokemon.name}
+                  <TypeBadge type={activePokemon.type} className="mr-1 align-middle" /> {activePokemon.name}
                 </span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: (playerRarity?.color || '#999') + '30', color: playerRarity?.color || '#999' }}>
                   Lv.{Math.floor((activePokemon.power_level || 10) / 5) + 1}
@@ -823,7 +824,7 @@ export default function BattleScreen({
                       <img src={getImage(p)} alt={p.name} className="w-full h-full object-contain" style={{ imageRendering: 'pixelated', filter: isAlive ? 'none' : 'grayscale(1)' }} />
                     </div>
                     <div className="flex-1 text-left">
-                      <span className="font-black pixel-text text-sm">{typeEmojis[p.type] || '⚪'} {p.name}</span>
+                      <span className="font-black pixel-text text-sm inline-flex items-center gap-1"><TypeBadge type={p.type} /> {p.name}</span>
                       <HPBar current={p.currentHP} max={p.maxHP} size="small" />
                     </div>
                     {isActive && <span className="text-[10px] font-bold" style={{ color: "#7a5a1f" }}>Active</span>}

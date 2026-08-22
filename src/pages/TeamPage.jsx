@@ -6,10 +6,11 @@ import {
   moveTeamMember,
   getTeamSynergySummary,
 } from "@/game/team";
-import { typeEmojis, rarityConfig, getPokemonImage } from "@/game/constants";
+import { rarityConfig, getPokemonImage } from "@/game/constants";
 import { Button } from "@/components/ui/button";
 import { Shield, HeartPulse, Plus } from "lucide-react";
 import { pokemonAPI } from "@/api/client";
+import TypeBadge from "@/components/TypeBadge";
 import TutorialCoach from "@/components/TutorialCoach";
 
 function getImg(pokemon) {
@@ -153,7 +154,7 @@ export default function TeamPage({ onNavigate, apiClient = pokemonAPI }) {
                       </span>
                       {teamSynergy.types.map((type) => (
                         <span key={type} className="pixel-badge px-2 py-1 text-[10px] font-black">
-                          {typeEmojis[type] || '⚪'} {type}
+                          <TypeBadge type={type} className="mr-1 align-middle" /> {type}
                         </span>
                       ))}
                     </div>
@@ -173,7 +174,7 @@ export default function TeamPage({ onNavigate, apiClient = pokemonAPI }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span>{typeEmojis[p.type] || '⚪'}</span>
+                            <span><TypeBadge type={p.type} /></span>
                             <span className="font-black pixel-text text-sm truncate">{p.name}</span>
                             <span className="text-[10px] font-bold" style={{ color: rarity.color }}>{p.rarity}</span>
                           </div>
@@ -229,7 +230,7 @@ export default function TeamPage({ onNavigate, apiClient = pokemonAPI }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        <span>{typeEmojis[p.type] || '⚪'}</span>
+                        <span><TypeBadge type={p.type} /></span>
                         <span className="font-black pixel-text text-sm truncate">{p.name}</span>
                       </div>
                       <span className="text-[10px] font-bold pixel-muted">{p.type}</span>
