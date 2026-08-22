@@ -1001,4 +1001,98 @@ describe('Pokemon API Client', () => {
     });
   });
 
+  describe('Weekly Missions Endpoints', () => {
+    it('should fetch weekly missions', async () => {
+            fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ week_key: '2026-W34', missions: [] }),
+      });
+
+      await pokemonAPI.getWeeklyMissions();
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/weekly-missions?'));
+      expect(call).toBeDefined();
+      expect(call[0]).toContain('user_id=test-uuid');
+    });
+
+    it('should post weekly mission progress events', async () => {
+            fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+
+      await pokemonAPI.progressWeeklyMissions('catches', 3);
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/weekly-missions/progress'));
+      expect(call[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+      expect(JSON.parse(call[1].body)).toMatchObject({ event: 'catches', amount: 3, user_id: 'test-uuid' });
+    });
+
+    it('should claim all weekly missions', async () => {
+            fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ totalXp: 100 }),
+      });
+
+      await pokemonAPI.claimAllWeeklyMissions();
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/weekly-missions/claim-all'));
+      expect(call[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+      expect(JSON.parse(call[1].body)).toMatchObject({ user_id: 'test-uuid' });
+    });
+  });
+
+  describe('Collection Mastery Endpoints', () => {
+    it('should fetch mastery status', async () => {
+            fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ caught_count: 12, tiers: [] }),
+      });
+
+      await pokemonAPI.getMasteryStatus();
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/mastery?'));
+      expect(call).toBeDefined();
+      expect(call[0]).toContain('user_id=test-uuid');
+    });
+
+    it('should claim a mastery tier', async () => {
+            fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user_id: 'test-uuid', existing: false }),
+      });
+
+fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ tier: { id: 'silver' }, wallet: { coins: 100 } }),
+      });
+
+      await pokemonAPI.claimMasteryTier('silver');
+
+      const call = fetch.mock.calls.find(([url]) => url.includes('/api/mastery/claim'));
+      expect(call[1]).toEqual(expect.objectContaining({ method: 'POST' }));
+      expect(JSON.parse(call[1].body)).toMatchObject({ tier_id: 'silver', user_id: 'test-uuid' });
+    });
+  });
+
 });

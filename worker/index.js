@@ -92,10 +92,11 @@ const grantPlayerXpReward = async (db, userId, xpReward = 0) => {
        WHERE user_id = ?`
     ).bind(nextXp, nextLevel, userId).run();
   } else {
+    // player_progress.id is INTEGER PRIMARY KEY — let SQLite auto-assign it.
     await db.prepare(
-      `INSERT INTO player_progress (id, user_id, xp, level, updated_at)
-       VALUES (?, ?, ?, ?, datetime('now'))`
-    ).bind(uuidv4(), userId, nextXp, nextLevel).run();
+      `INSERT INTO player_progress (user_id, xp, level, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`
+    ).bind(userId, nextXp, nextLevel).run();
   }
 
   return { xp: nextXp, level: nextLevel };
@@ -186,18 +187,16 @@ const addWalletReward = async (db, userId, reward = {}) => {
     shards: (Number(wallet.shards) || 0) + (Number(reward.shards) || 0),
   };
 
-  if (wallet.user_id) {
-    await db.prepare(
-      `UPDATE player_wallet
-       SET coins = ?, shards = ?, updated_at = datetime('now')
-       WHERE user_id = ?`
-    ).bind(nextWallet.coins, nextWallet.shards, userId).run();
-  } else {
-    await db.prepare(
-      `INSERT INTO player_wallet (user_id, coins, shards, updated_at)
-       VALUES (?, ?, ?, datetime('now'))`
-    ).bind(userId, nextWallet.coins, nextWallet.shards).run();
-  }
+  // Upsert: getPlayerWallet returns a default object with user_id even when no
+  // row exists yet, so a plain UPDATE would silently persist nothing for new users.
+  await db.prepare(
+    `INSERT INTO player_wallet (user_id, coins, shards, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(user_id) DO UPDATE SET
+       coins = excluded.coins,
+       shards = excluded.shards,
+       updated_at = datetime('now')`
+  ).bind(userId, nextWallet.coins, nextWallet.shards).run();
 
   return { user_id: userId, ...nextWallet };
 };
@@ -749,11 +748,11 @@ app.post('/api/player/progress', async (c) => {
           `UPDATE player_progress SET xp = ?, level = ?, updated_at = datetime('now') WHERE user_id = ?`
         ).bind(xp, level, user_id).run();
       } else {
-        // Insert new
+        // Insert new (id is INTEGER PRIMARY KEY — auto-assigned)
         await c.env.DB.prepare(
-          `INSERT INTO player_progress (id, user_id, xp, level, updated_at)
-           VALUES (?, ?, ?, ?, datetime('now'))`
-        ).bind(uuidv4(), user_id, xp, level).run();
+          `INSERT INTO player_progress (user_id, xp, level, updated_at)
+           VALUES (?, ?, ?, datetime('now'))`
+        ).bind(user_id, xp, level).run();
       }
     } else {
       // Legacy: Upsert progress (single row table with id=1)
@@ -1575,6 +1574,7 @@ const listWeeklyMissionsRoute = async (c) => {
     const user_id = c.req.query('user_id');
     if (!user_id) return c.json({ error: 'user_id is required' }, 400);
 
+    await ensureUserExists(c.env.DB, user_id);
     const missions = await ensureWeeklyMissions(c.env.DB, user_id);
     return c.json({ week_key: getWorkerWeekKey(), missions });
   } catch (error) {
@@ -1602,6 +1602,7 @@ const claimWeeklyMissionsRoute = async (c) => {
     const user_id = c.req.query('user_id') || data?.user_id;
     if (!user_id) return c.json({ error: 'user_id is required' }, 400);
 
+    await ensureUserExists(c.env.DB, user_id);
     const result = await claimWeeklyMissionRewards(
       c.env.DB,
       user_id,
