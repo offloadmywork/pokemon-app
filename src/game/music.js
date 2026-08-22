@@ -4,6 +4,7 @@
 // and the SFX mute flag. Music must never break gameplay.
 
 import { getSharedContext } from './audioContext.js';
+import { isMuted } from './audio.js';
 
 const SETTINGS_KEY = 'pokemon-audio-settings';
 
@@ -121,6 +122,7 @@ function scheduleNote(ctx, theme, note, startAt) {
 function schedulerTick() {
   try {
     if (!currentThemeName) return;
+    if (isMuted()) return; // shared mute silences music too
     const ctx = getSharedContext();
     if (!ctx) { stopMusic(); return; }
     const theme = MUSIC_THEMES[currentThemeName];

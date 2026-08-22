@@ -169,26 +169,6 @@ export const saveProgress = (xp, level) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ xp, level }));
 };
 
-export const typeEmojis = {
-  Fire: "FIR",
-  Water: "WTR",
-  Grass: "GRS",
-  Electric: "ELC",
-  Psychic: "PSY",
-  Dragon: "DRG",
-  Fairy: "FRY",
-  Rock: "RCK",
-  Ice: "ICE",
-  Flying: "FLY",
-  Poison: "PSN",
-  Bug: "BUG",
-  Normal: "NRM",
-  Dark: "DRK",
-  Ghost: "GST",
-  Steel: "STL",
-  Fighting: "FIG",
-  Ground: "GRD",
-};
 
 // ═══════════════════════════════════════════ // GAME BALANCE CONSTANTS // ═══════════════════════════════════════════
 export const CRITICAL_CHANCE = 0.1; // 10% chance for critical hits
