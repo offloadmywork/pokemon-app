@@ -50,7 +50,7 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 - [ ] E1.4 Tests for audio settings persistence + mute behavior
 
 ## E2 — Home & Navigation IA [critical]
-- [ ] E2.1 Reorganize Home into tabbed/sectioned hub (Play / Quests / Social / Shop / Profile) with progressive disclosure
+- [x] E2.1 Reorganize Home into tabbed hub (Play / Social / Shop / Profile) with progressive disclosure
 - [ ] E2.2 Real Team page as its own destination (team management moves out of Collection)
 - [ ] E2.3 Visual hierarchy pass: featured content vs utility panels
 
