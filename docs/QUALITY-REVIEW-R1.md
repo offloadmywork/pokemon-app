@@ -51,7 +51,7 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 
 ## E2 — Home & Navigation IA [critical]
 - [x] E2.1 Reorganize Home into tabbed hub (Play / Social / Shop / Profile) with progressive disclosure
-- [ ] E2.2 Real Team page as its own destination (team management moves out of Collection)
+- [x] E2.2 Real Team page as its own destination (team management moves out of Collection)
 - [ ] E2.3 Visual hierarchy pass: featured content vs utility panels
 
 ## E3 — Onboarding Tutorial [major]
