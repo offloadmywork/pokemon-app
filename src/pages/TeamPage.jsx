@@ -10,6 +10,7 @@ import { typeEmojis, rarityConfig, getPokemonImage } from "@/game/constants";
 import { Button } from "@/components/ui/button";
 import { Shield, HeartPulse, Plus } from "lucide-react";
 import { pokemonAPI } from "@/api/client";
+import TutorialCoach from "@/components/TutorialCoach";
 
 function getImg(pokemon) {
   if (pokemon.image_url && pokemon.image_url.length > 100) return pokemon.image_url;
@@ -123,6 +124,7 @@ export default function TeamPage({ onNavigate, apiClient = pokemonAPI }) {
         <p className="text-white/90 font-semibold mb-6">Up to 3 Pokémon fight together. Lead with your strongest.</p>
 
         {isLoading && <div className="pixel-panel-dark p-4 text-center pixel-text">Loading team…</div>}
+        <TutorialCoach page="team" />
 
         {!isLoading && message && (
           <div className="pixel-panel-dark px-4 py-2 mb-4 text-xs md:text-sm font-bold text-center" role="status">
