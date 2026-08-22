@@ -55,9 +55,9 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 - [ ] E2.3 Visual hierarchy pass: featured content vs utility panels
 
 ## E3 — Onboarding Tutorial [major]
-- [ ] E3.1 First-run guided flow: claim starter → move → encounter → weaken → catch → heal
-- [ ] E3.2 Contextual tips (type advantage hints already partially exist in PvP)
-- [ ] E3.3 Skip/replay support + persistence of tutorial completion
+- [x] E3.1 First-run guided flow: claim starter → move → encounter → weaken → catch → heal
+- [x] E3.2 Contextual tips (type advantage hints already partially exist in PvP)
+- [x] E3.3 Skip/replay support + persistence of tutorial completion
 
 ## E4 — Save Safety / Accounts [major]
 - [ ] E4.1 Server-side session continuity beyond localStorage UUID (passcode-based recovery distinct from user id)
