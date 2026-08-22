@@ -89,8 +89,8 @@ describe('Achievement Worker API', () => {
     });
     expect(calls).toContainEqual(expect.objectContaining({
       type: 'run',
-      sql: expect.stringContaining('UPDATE player_wallet'),
-      params: [160, 1, 'user-1'],
+      sql: expect.stringContaining('INSERT INTO player_wallet'),
+      params: ['user-1', 160, 1],
     }));
     expect(calls).toContainEqual(expect.objectContaining({
       type: 'run',
