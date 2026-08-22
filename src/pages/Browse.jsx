@@ -11,6 +11,7 @@ import { getBossClearKey, loadBossClears, recordBossClear } from "@/game/bossPro
 import { getActiveSeasonalEvent, selectSeasonalEncounterType } from "@/game/seasonalEvents";
 import { getItemById } from "@/game/items";
 import { playSfx } from "@/game/audio";
+import { startMusic, stopMusic } from "@/game/music";
 import { applyLureDurationBonus, getLureByItemId, selectLureEncounterType } from "@/game/lures";
 import { getCosmetic } from "@/game/cosmetics";
 import playerSprite from "@/assets/player-spritesheet.svg";
@@ -202,6 +203,12 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
 
   // Encounter state
   const [encounterPhase, setEncounterPhase] = useState(null); // null | 'flash' | 'battle' | 'no-team'
+
+  // Theme music: calm route loop while exploring, battle loop during fights.
+  useEffect(() => {
+    startMusic(encounterPhase === 'battle' ? 'battle' : 'route');
+  }, [encounterPhase]);
+  useEffect(() => () => stopMusic(), []);
   const [pokemon, setPokemon] = useState(null);
   const [battleTeam, setBattleTeam] = useState(null);
 
