@@ -74,19 +74,19 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 flex items-center justify-center px-4 py-6 sm:px-6">
       <div className="w-full max-w-4xl">
         <div className="text-center">
-          <div className="mb-8 animate-bounce flex items-center justify-center">
-            <Gamepad2 className="w-16 h-16 sm:w-24 sm:h-24 text-white drop-shadow-lg" />
+          <div className="mb-4 sm:mb-6 flex items-center justify-center">
+            <Gamepad2 className="w-12 h-12 sm:w-16 sm:h-16 text-white drop-shadow-lg" />
           </div>
           
-          <h1 className="text-4xl sm:text-6xl font-black text-white mb-4 sm:mb-6 drop-shadow-lg">
+          <h1 className="text-3xl sm:text-5xl font-black text-white mb-2 sm:mb-3 drop-shadow-lg">
             Pokémon Adventure!
           </h1>
           
-          <p className="text-lg sm:text-2xl text-white/90 mb-8 sm:mb-12 font-semibold">
+          <p className="text-base sm:text-xl text-white/90 mb-6 sm:mb-8 font-semibold">
             Catch amazing Pokémons and build your collection!
           </p>
           
-          <div className="flex flex-col gap-4 max-w-sm mx-auto mb-10">
+          <div className="flex flex-col gap-3 max-w-sm mx-auto mb-8">
             <Button 
               onClick={() => onNavigate('browse')}
               className="h-14 sm:h-16 text-xl sm:text-2xl font-bold"
@@ -189,12 +189,9 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
         </div>
 
         {section === 'play' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DailyQuestsPanel />
-          <WeeklyMissionsPanel />
-          <div className="flex flex-col gap-6">
+          <>
             {activeSeasonalEvent && (
-              <div className="gold-panel p-6 text-left">
+              <div className="gold-panel p-6 mb-6 text-left">
                 <div className="gold-panel-content">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -214,6 +211,11 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
                 </div>
               </div>
             )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DailyQuestsPanel />
+          <WeeklyMissionsPanel />
+          <div className="flex flex-col gap-6">
             <ChallengeTowerPanel />
             <EvolutionPanel />
             {bossClears.length > 0 && (
@@ -261,6 +263,7 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
             )}
             </div>
           </div>
+          </>
         )}
 
         {section === 'social' && (
