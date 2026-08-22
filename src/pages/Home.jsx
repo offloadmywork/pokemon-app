@@ -18,6 +18,7 @@ import UpgradePanel from "@/components/UpgradePanel";
 import { featureFlags } from "@/config/featureFlags";
 import { getActiveSeasonalEvent } from "@/game/seasonalEvents";
 import { CalendarCheck, CheckCircle2, Gamepad2, Gift, PartyPopper, Search, ShieldPlus, Star, Swords, Trophy } from "lucide-react";
+import TutorialCoach from "@/components/TutorialCoach";
 
 const HUB_SECTIONS = [
   { key: 'play', label: 'Play' },
@@ -287,6 +288,7 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
           </div>
         )}
       </div>
-    </div>
+      <TutorialCoach page="home" />
+      </div>
   );
 }

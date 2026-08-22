@@ -12,6 +12,7 @@ import {
   MAX_TEAM_SIZE,
 } from "@/game/team";
 import { typeEmojis, rarityConfig } from "@/game/constants";
+import TutorialCoach from "@/components/TutorialCoach";
 
 // ═══════════════════════════════════════════
 // TEAM PAGE — first-class team management (Epic E2.2)
@@ -267,6 +268,7 @@ export default function TeamPage({ apiClient = pokemonAPI }) {
           )}
         </div>
       </div>
-    </div>
+      <TutorialCoach page="team" />
+      </div>
   );
 }

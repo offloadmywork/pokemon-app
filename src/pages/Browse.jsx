@@ -25,6 +25,7 @@ import poiTower from "@/assets/poi/tower.svg";
 import poiQuest from "@/assets/poi/quest.svg";
 import poiRare from "@/assets/poi/rare.svg";
 import tileSprite from "@/assets/tileset.svg";
+import TutorialCoach from "@/components/TutorialCoach";
 import {
   CATCH_RATES, TOTAL_POKEMON, STORAGE_KEY, LEVEL_CONFIG,
   XP_REWARDS, RARITY_WEIGHTS, rollRarity,
@@ -1084,7 +1085,8 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
           </div>
         </div>
       )}
-    </div>
+      <TutorialCoach page="browse" />
+      </div>
   );
 }
 
