@@ -67,7 +67,7 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 ## E5 — Accessibility & Motion [major]
 - [x] E5.1 prefers-reduced-motion media query disabling flashes/shakes/confetti
 - [x] E5.2 Aria labels/alt text sweep across interactive elements + battle viewport text alternative
-- [ ] E5.3 Focus management in overlays/modals
+- [x] E5.3 Focus management in overlays/modals
 
 ## E6 — Technical Hygiene [minor]
 - [x] E6.1 Remove committed junk artifact Collection.jsx-e

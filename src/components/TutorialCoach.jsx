@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   getActiveStepForPage,
   completeStep,
@@ -14,12 +14,39 @@ import { playSfx } from '@/game/audio';
 export default function TutorialCoach({ page }) {
   const [step, setStep] = useState(() => getActiveStepForPage(page));
   const [hidden, setHidden] = useState(false);
+  const primaryButtonRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const handleGotItRef = useRef(() => {});
 
   // Re-check when navigating between pages.
   useEffect(() => {
     setStep(getActiveStepForPage(page));
     setHidden(false);
   }, [page]);
+
+  // Focus management: pull focus into the dialog, restore it on close.
+  useEffect(() => {
+    if (step && !hidden) {
+      previousFocusRef.current = document.activeElement;
+      primaryButtonRef.current?.focus?.();
+    }
+    return () => {
+      if (previousFocusRef.current instanceof HTMLElement) {
+        previousFocusRef.current.focus();
+      }
+      previousFocusRef.current = null;
+    };
+  }, [step, hidden]);
+
+  // Escape dismisses the current step.
+  useEffect(() => {
+    if (hidden || !step) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleGotItRef.current();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hidden, step]);
 
   if (hidden || !step) return null;
 
@@ -31,6 +58,8 @@ export default function TutorialCoach({ page }) {
     completeStep(step.id);
     setStep(getActiveStepForPage(page));
   };
+
+  handleGotItRef.current = handleGotIt;
 
   const handleSkip = () => {
     playSfx('ui_tap');
@@ -64,6 +93,7 @@ export default function TutorialCoach({ page }) {
           </button>
           <button
             type="button"
+            ref={primaryButtonRef}
             onClick={handleGotIt}
             className="pixel-btn pixel-btn-success px-4 py-2 text-xs font-black rounded-none"
           >

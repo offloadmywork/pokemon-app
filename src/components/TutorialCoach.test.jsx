@@ -38,4 +38,44 @@ describe('TutorialCoach', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', {}, { timeout: 100 })).not.toBeInTheDocument();
   });
+
+  // Scenario: Keyboard and screen-reader users get proper dialog behavior
+  //   Given the coach dialog appears
+  //   When it mounts
+  //   Then focus moves to the primary action, Escape dismisses, and
+  //   focus returns to where it was when the dialog closes
+  it('moves focus into the dialog on mount', () => {
+    render(<TutorialCoach page="home" />);
+    const gotIt = screen.getByRole('button', { name: /got it/i });
+    expect(gotIt).toHaveFocus();
+  });
+
+  it('dismisses the current step on Escape', () => {
+    const homeStepCount = TUTORIAL_STEPS.filter((s) => s.page === 'home').length;
+    render(<TutorialCoach page="home" />);
+
+    for (let i = 0; i < homeStepCount; i += 1) {
+      fireEvent.keyDown(document.activeElement || document.body, { key: 'Escape' });
+    }
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('restores focus to the previously focused element after closing', () => {
+    const launcher = document.createElement('button');
+    document.body.appendChild(launcher);
+    launcher.focus();
+    expect(launcher).toHaveFocus();
+
+    const { unmount } = render(<TutorialCoach page="home" />);
+    expect(screen.getByRole('button', { name: /got it/i })).toHaveFocus();
+
+    TUTORIAL_STEPS.filter((s) => s.page === 'home').forEach(() => {
+      fireEvent.click(screen.getByRole('button', { name: /got it/i }));
+    });
+    unmount();
+
+    expect(launcher).toHaveFocus();
+    launcher.remove();
+  });
 });
