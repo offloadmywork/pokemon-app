@@ -3,6 +3,7 @@ import { calculateDamage, getMaxHP, getCatchRate, getFaintedCatchRate } from "@/
 import { getPokemonImage, typeEmojis, rarityConfig, XP_REWARDS } from "@/game/constants";
 import { getSeasonalCatchRate, getSeasonalXpReward } from "@/game/seasonalEvents";
 import { getCosmetic } from "@/game/cosmetics";
+import { playSfx, vibrate } from "@/game/audio";
 
 // ═══════════════════════════════════════════
 // BATTLE SCREEN — Full turn-based battle UI
@@ -167,6 +168,7 @@ export default function BattleScreen({
   useEffect(() => {
     (async () => {
       setMessage(`A wild ${wildPokemon.name} appeared!`);
+      playSfx('encounter');
       await wait(1800);
       setPhase(PHASE.PLAYER_ENTER);
       setMessage(`Go, ${activePokemon.name}!`);
@@ -193,6 +195,8 @@ export default function BattleScreen({
     setPlayerDamage(result);
     setPlayerFlashRed(true);
     setPlayerShake(true);
+    playSfx(result.isCritical ? 'critical' : 'hit');
+    if (result.isCritical) vibrate([40, 30, 80]);
 
     const newHP = Math.max(0, myPokemon.currentHP - result.damage);
     const updatedTeam = [...currentTeam];
@@ -208,6 +212,7 @@ export default function BattleScreen({
     if (newHP <= 0) {
       setPhase(PHASE.FAINTED_PLAYER);
       setMessage(`${myPokemon.name} fainted!`);
+      playSfx('faint');
       await wait(1500);
 
       // Find next alive
@@ -252,6 +257,18 @@ export default function BattleScreen({
     setWildFlashRed(true);
     setWildShake(true);
 
+    if (result.isCritical) {
+      playSfx('critical');
+      vibrate([40, 30, 80]);
+    } else {
+      playSfx(
+        result.effectiveness === 'super-effective' ? 'super_effective'
+          : result.effectiveness === 'not-very-effective' ? 'not_very_effective'
+            : 'hit'
+      );
+      if (result.effectiveness !== 'normal') vibrate(60);
+    }
+
     const newWildHP = Math.max(0, wildHP - result.damage);
     setWildHP(newWildHP);
 
@@ -283,6 +300,7 @@ export default function BattleScreen({
     if (newWildHP <= 0) {
       setPhase(PHASE.FAINTED_WILD);
       setMessage(`Wild ${wildPokemon.name} fainted!`);
+      playSfx('faint');
       await wait(1500);
       // Offer catch with high rate
       setPhase(PHASE.FAINTED_WILD_CATCH);
@@ -308,6 +326,7 @@ export default function BattleScreen({
     // Throw animation
     setPhase(PHASE.CATCH_THROW);
     setMessage(`Go, ${ballPresentation.name}!`);
+    playSfx('ball_throw');
     await wait(1200);
 
     // Wobble animation
@@ -316,6 +335,7 @@ export default function BattleScreen({
     for (let i = 0; i < wobbles; i++) {
       await wait(800);
       setWobbleCount(i + 1);
+      playSfx('ball_wobble');
     }
     await wait(600);
 
@@ -323,6 +343,8 @@ export default function BattleScreen({
       setPhase(PHASE.CATCH_SUCCESS);
       setShowConfetti(true);
       setMessage(`You caught ${wildPokemon.name}!`);
+      playSfx('catch_success');
+      vibrate([50, 50, 50, 50, 150]);
       // End battle after celebration
       await wait(2500);
       const xpGain = getSeasonalXpReward(XP_REWARDS[wildPokemon.rarity] || 10, seasonalEvent, wildPokemon);
@@ -336,6 +358,7 @@ export default function BattleScreen({
     } else {
       setPhase(PHASE.CATCH_FAIL);
       setMessage(`Oh no! ${wildPokemon.name} broke free!`);
+      playSfx('catch_fail');
       await wait(1200);
 
       if (wildHP <= 0) {
