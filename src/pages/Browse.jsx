@@ -766,6 +766,8 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
       {/* ═══ GAME VIEWPORT ═══ */}
       <div className="flex items-center justify-center" style={{ minHeight: '100vh', paddingTop: '70px', paddingBottom: '20px' }}>
         <div
+          role="img"
+          aria-label={`Overworld map: zone ${level}. You are at position ${playerPos.x + 1}, ${playerPos.y + 1} of a ${mapCols} by ${mapRows} tile map. Use arrow keys or the D-pad to move. Grass tiles may trigger wild encounters.`}
           style={{
             width: VIEWPORT_W,
             height: VIEWPORT_H,

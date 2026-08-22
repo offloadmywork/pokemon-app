@@ -701,7 +701,7 @@ export default function BattleScreen({
       {/* ═══ MESSAGE BAR ═══ */}
       <div className="px-4 pb-2">
         <div className="pixel-panel px-4 py-3">
-          <p className="text-sm md:text-base font-black pixel-text text-center" style={{ minHeight: '28px' }}>
+          <p role="status" aria-live="polite" className="text-sm md:text-base font-black pixel-text text-center" style={{ minHeight: '28px' }}>
             {message}
           </p>
         </div>
@@ -715,6 +715,7 @@ export default function BattleScreen({
             {/* Attack */}
             <button
               onClick={handleAttack}
+              aria-label={`Attack — ${activePokemon?.name || 'your Pokémon'} strikes the wild ${wildPokemon?.name || 'Pokémon'}`}
               className="group relative"
             >
               <div className="hidden" />
@@ -726,6 +727,7 @@ export default function BattleScreen({
             {/* Catch */}
             <button
               onClick={() => handleCatch(false)}
+              aria-label={`Throw a Pokéball to catch ${wildPokemon?.name || 'the wild Pokémon'}`}
               className="group relative"
             >
               <div className="hidden" />
