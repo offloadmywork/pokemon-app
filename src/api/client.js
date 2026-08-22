@@ -103,6 +103,13 @@ class PokemonAPI {
     return this.request(`/api/pokemon/random/get${params}`);
   }
 
+  async rollEncounter(level = 1, lureType = null) {
+    const userId = await this.getUserId();
+    const query = new URLSearchParams({ user_id: userId, level: String(level) });
+    if (lureType) query.set('lure_type', lureType);
+    return this.request(`/api/encounters/roll?${query.toString()}`);
+  }
+
   // Caught Pokemon endpoints
   async getCaughtPokemon() {
     const userId = await this.getUserId();

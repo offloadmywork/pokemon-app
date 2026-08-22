@@ -3,7 +3,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { buildChallengeTowerFloors, CHALLENGE_TOWER_MAX_FLOORS } from '../src/game/challengeTower.js';
-import { getLevelFromXP } from '../src/game/constants.js';
+import { getLevelFromXP, rollRarity } from '../src/game/constants.js';
+import { getActiveSeasonalEvent, selectSeasonalEncounterType } from '../src/game/seasonalEvents.js';
 import { getMaxHP } from '../src/game/battle.js';
 import { getDailyQuestTemplateKeysForEvent } from '../src/game/dailyQuestEvents.js';
 import { getDailyQuestTemplatesForDate } from '../src/game/dailyQuestTemplates.js';
@@ -411,6 +412,60 @@ app.get('/api/pokemon/random/get', async (c) => {
     }
     
     return c.json(results[0]);
+  } catch (error) {
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+  }
+});
+
+
+// Server-side encounter roll (Epic E10b): rarity weighting and type boosts
+// are resolved on the server so encounter odds cannot be tampered with client-side.
+app.get('/api/encounters/roll', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+    const level = Math.max(1, Math.floor(Number(c.req.query('level')) || 1));
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    // Rarity roll happens here, with the server's RNG.
+    const rarity = rollRarity(level);
+
+    // Type boost: lure hint from the client (convenience boost) then the
+    // seasonal event, computed from the server's clock.
+    const lureType = c.req.query('lure_type') || null;
+    const seasonalType = selectSeasonalEncounterType(
+      getActiveSeasonalEvent(new Date().toISOString().slice(0, 10))
+    );
+    const type = lureType || seasonalType || null;
+
+    const attempts = type
+      ? [
+        { rarity, type },
+        { rarity },
+        {},
+      ]
+      : [
+        { rarity },
+        {},
+      ];
+
+    for (const filters of attempts) {
+      const clauses = [];
+      const params = [];
+      if (filters.rarity) { clauses.push('rarity = ?'); params.push(filters.rarity); }
+      if (filters.type) { clauses.push('type = ?'); params.push(filters.type); }
+      let query = 'SELECT * FROM pokemon';
+      if (clauses.length > 0) query += ` WHERE ${clauses.join(' AND ')}`;
+      query += ' ORDER BY RANDOM() LIMIT 1';
+
+      const { results } = await c.env.DB.prepare(query).bind(...params).all();
+      if (results?.length > 0) {
+        return c.json({ ...results[0], rolled_rarity: rarity });
+      }
+    }
+
+    return c.json({ error: 'No Pokemon found' }, 404);
   } catch (error) {
     return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }

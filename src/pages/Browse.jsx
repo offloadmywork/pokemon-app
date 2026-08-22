@@ -311,8 +311,16 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
   // POKEMON FETCHING
   // ═══════════════════════════════════════════
   const fetchRandomPokemon = useCallback(async () => {
-    const selectedRarity = rollRarity(level);
     const lureType = selectLureEncounterType(activeLure);
+    try {
+      // Server-side roll: rarity weighting and boosted-type selection happen
+      // on the Worker so encounter odds are tamper-proof.
+      return await pokemonAPI.rollEncounter(level, lureType);
+    } catch (err) {
+      console.error('Server encounter roll failed, using legacy client flow:', err);
+    }
+    // Legacy fallback: client-side weighting + filtered random fetch.
+    const selectedRarity = rollRarity(level);
     const seasonalType = selectSeasonalEncounterType(activeSeasonalEvent);
     const encounterType = lureType || seasonalType;
     try {
