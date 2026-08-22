@@ -494,7 +494,8 @@
 - ✅ WeeklyMissionsViewModel with load, claim-all, and claimable-rewards state (5 BDD tests)
 - ✅ Home surfaces a Weekly Missions panel with week label, progress bars, claim button, and chest feedback (4 BDD tests)
 - ✅ Gameplay event wiring (best-effort): catches, rare catches, PvP wins, evolutions, tower floors, co-op raid victories, and fully claimed daily quest days
+- ✅ Week-boundary verification: new weeks reset progress, advanced rotation cycles deterministically, core missions stay constant, ISO Sunday/Monday boundaries verified
+- ✅ Worker generation scoped to a single week key with fresh progress
 
 ### Next
-- Weekly mission reset/rotation verification across week boundaries
 - Extend KPI snapshot with weekly mission engagement once production data exists
