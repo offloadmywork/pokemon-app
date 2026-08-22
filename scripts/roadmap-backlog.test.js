@@ -6,7 +6,7 @@ describe('post-Phase-3 roadmap backlog', () => {
     const roadmap = fs.readFileSync('docs/ROADMAP.md', 'utf8');
     const section = roadmap.match(/## Post-Phase-3 Backlog([\s\S]*?)(?:\n## |\s*$)/)?.[1] || '';
 
-    expect(roadmap).toContain('**Focus:** Post-Phase-3 polish review');
+    expect(roadmap).toContain('**Focus:** Weekly Missions slice');
     expect(section).toContain('### Priority');
     expect(section).toContain('1. Mobile navigation polish');
     expect(section).toContain('2. Economy sinks and rewards');
@@ -46,7 +46,7 @@ describe('post-Phase-3 roadmap backlog', () => {
   it('defines team management polish from the remaining GDD UX gaps', () => {
     const roadmap = fs.readFileSync('docs/ROADMAP.md', 'utf8');
 
-    expect(roadmap).toContain('**Focus:** Post-Phase-3 polish review');
+    expect(roadmap).toContain('**Focus:** Weekly Missions slice');
     expect(roadmap).toContain('## Current Feature: Team Management Polish');
     expect(roadmap).toContain('GDD calls for Team drag/drop slots and synergy hints');
     expect(roadmap).toContain('Team synergy hints surface type coverage in Collection');

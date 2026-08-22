@@ -3,6 +3,7 @@ import { pokemonAPI } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import AchievementsPanel from "@/components/AchievementsPanel";
 import DailyQuestsPanel from "@/components/DailyQuestsPanel";
+import WeeklyMissionsPanel from "@/components/WeeklyMissionsPanel";
 import ChallengeTowerPanel from "@/components/ChallengeTowerPanel";
 import CoopRaidPanel from "@/components/CoopRaidPanel";
 import CosmeticsPanel from "@/components/CosmeticsPanel";
@@ -161,6 +162,7 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <DailyQuestsPanel />
+          <WeeklyMissionsPanel />
           <div className="flex flex-col gap-6">
             {activeSeasonalEvent && (
               <div className="gold-panel p-6 text-left">

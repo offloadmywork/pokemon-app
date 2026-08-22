@@ -491,9 +491,10 @@
 - ✅ D1 schema/migration added for `weekly_missions` (0019)
 - ✅ Worker API: GET `/api/weekly-missions` (auto-generates the current week), POST `/api/weekly-missions/progress`, POST `/api/weekly-missions/claim-all` (XP + wallet coins + chest item)
 - ✅ API client exposes weekly mission list/progress/claim methods
+- ✅ WeeklyMissionsViewModel with load, claim-all, and claimable-rewards state (5 BDD tests)
+- ✅ Home surfaces a Weekly Missions panel with week label, progress bars, claim button, and chest feedback (4 BDD tests)
 - ✅ Gameplay event wiring (best-effort): catches, rare catches, PvP wins, evolutions, tower floors, co-op raid victories, and fully claimed daily quest days
 
 ### Next
-- Home Weekly Missions panel UI (ViewModel + component + claim feedback)
 - Weekly mission reset/rotation verification across week boundaries
 - Extend KPI snapshot with weekly mission engagement once production data exists
