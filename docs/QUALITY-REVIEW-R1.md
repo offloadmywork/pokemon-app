@@ -65,14 +65,14 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 - [ ] E4.3 Data-loss warning UX for at-risk saves
 
 ## E5 — Accessibility & Motion [major]
-- [ ] E5.1 prefers-reduced-motion media query disabling flashes/shakes/confetti
+- [x] E5.1 prefers-reduced-motion media query disabling flashes/shakes/confetti
 - [ ] E5.2 Aria labels/alt text sweep across interactive elements + battle viewport text alternative
 - [ ] E5.3 Focus management in overlays/modals
 
 ## E6 — Technical Hygiene [minor]
 - [x] E6.1 Remove committed junk artifact Collection.jsx-e
-- [ ] E6.2 Move encounter roll out of setState updater; guard battle intro async chain against unmount
-- [ ] E6.3 Centralized worker error handler; scrub internal error messages from 500s
+- [x] E6.2 Move encounter roll out of setState updater; guard battle intro async chain against unmount
+- [x] E6.3 Centralized worker error handler; scrub internal error messages from 500s
 - [ ] E6.4 Art direction audit: replace emoji sprites with consistent pixel assets
 - [ ] E6.5 Movement feel: buffered input + held-key acceleration
 
