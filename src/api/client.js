@@ -335,6 +335,20 @@ class PokemonAPI {
     });
   }
 
+  // ===== COLLECTION MASTERY API =====
+  async getMasteryStatus() {
+    const userId = await this.getUserId();
+    return this.request(`/api/mastery?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async claimMasteryTier(tierId) {
+    const userId = await this.getUserId();
+    return this.request('/api/mastery/claim', {
+      method: 'POST',
+      body: JSON.stringify({ tier_id: tierId, user_id: userId }),
+    });
+  }
+
   // ===== BOSS CLEAR PROGRESSION API =====
   async getBossClears() {
     const userId = await this.getUserId();

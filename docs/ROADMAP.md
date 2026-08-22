@@ -483,9 +483,12 @@
 - ✅ Tier resolution reports current tier, next tier, and progress-to-next
 - ✅ Unclaimed reward evaluation pays one-time currency-only rewards (no combat power)
 - ✅ BDD coverage: 9 domain tests including fairness (no attack/power rewards) and immutability
+- ✅ Worker API: GET `/api/mastery` (tier status + unclaimed rewards), POST `/api/mastery/claim` (one-time claim persisted in `user_achievements` as `mastery_<tier>` with wallet rewards)
+- ✅ API client exposes mastery status/claim methods
+- ✅ BDD coverage: 3 Worker route tests (status, claim-once, unreached rejection)
 
 ### Next
-- Persist claimed mastery tiers through D1/Worker APIs and surface tier status on Home/Achievements
+- Home mastery panel UI surfacing tier status and claim feedback
 
 ## Notes
 - Keep implementation BDD-first: add a scenario/test for each new quest type / streak rule.

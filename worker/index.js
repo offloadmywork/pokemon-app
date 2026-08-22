@@ -21,6 +21,10 @@ import {
   incrementWeeklyMissionProgress,
   claimWeeklyMissionRewards,
 } from './weeklyMissions.js';
+import {
+  getMasteryStatus,
+  claimMasteryTier,
+} from './collectionMastery.js';
 import { createCoopRaidRoom, getCoopRaidRoom, joinCoopRaidRoom, recordCoopRaidAttempt } from './coopRaids.js';
 import { getPlayerWallet, grantPlayerCoins } from './playerWallet.js';
 import { findQueuedPvpOpponent, getPvpOpponentTeam, leavePvpQueue, upsertPvpQueueEntry } from './pvpQueue.js';
@@ -1615,6 +1619,42 @@ const claimWeeklyMissionsRoute = async (c) => {
 app.get('/api/weekly-missions', listWeeklyMissionsRoute);
 app.post('/api/weekly-missions/progress', updateWeeklyMissionProgressRoute);
 app.post('/api/weekly-missions/claim-all', claimWeeklyMissionsRoute);
+
+// ===== COLLECTION MASTERY API (Phase 4: Live Ops & Retention) =====
+app.get('/api/mastery', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    await ensureUserExists(c.env.DB, user_id);
+    return c.json(await getMasteryStatus(c.env.DB, user_id));
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/mastery/claim', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, tier_id } = data;
+    if (!user_id || !tier_id) {
+      return c.json({ error: 'user_id and tier_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const result = await claimMasteryTier(
+      c.env.DB,
+      user_id,
+      tier_id,
+      async (reward) => addWalletReward(c.env.DB, user_id, reward)
+    );
+
+    if (result.error) return c.json({ error: result.error }, 400);
+    return c.json(result);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
 
 // ===== CHALLENGE TOWER API =====
 const ensureTowerProgress = async (db, userId) => {
