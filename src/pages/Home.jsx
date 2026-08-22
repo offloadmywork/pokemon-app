@@ -19,9 +19,17 @@ import { featureFlags } from "@/config/featureFlags";
 import { getActiveSeasonalEvent } from "@/game/seasonalEvents";
 import { CalendarCheck, CheckCircle2, Gamepad2, Gift, PartyPopper, Search, ShieldPlus, Star, Swords, Trophy } from "lucide-react";
 
+const HUB_SECTIONS = [
+  { key: 'play', label: 'Play' },
+  { key: 'social', label: 'Social' },
+  { key: 'shop', label: 'Shop' },
+  { key: 'profile', label: 'Profile' },
+];
+
 export default function Home({ onNavigate, apiClient = pokemonAPI, today = new Date().toISOString().slice(0, 10) }) {
   const [starterState, setStarterState] = useState('loading');
   const [bossClears, setBossClears] = useState([]);
+  const [section, setSection] = useState('play');
   const activeSeasonalEvent = getActiveSeasonalEvent(today);
 
   useEffect(() => {
@@ -161,10 +169,28 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
           </div>
         </div>
 
+        <div role="tablist" aria-label="Home sections" className="flex gap-2 mb-6 justify-center">
+          {HUB_SECTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={section === key}
+              onClick={() => setSection(key)}
+              className={`px-4 py-2 rounded-full text-sm font-black border-2 transition ${
+                section === key
+                  ? 'bg-white text-[#4f3514] border-white shadow-lg'
+                  : 'bg-black/20 text-white/90 border-transparent hover:bg-black/30'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {section === 'play' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <DailyQuestsPanel />
           <WeeklyMissionsPanel />
-          <CollectionMasteryPanel />
           <div className="flex flex-col gap-6">
             {activeSeasonalEvent && (
               <div className="gold-panel p-6 text-left">
@@ -187,15 +213,6 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
                 </div>
               </div>
             )}
-            <PvpPanel apiClient={apiClient} onNavigate={featureFlags.leaderboards ? onNavigate : null} />
-            <CoopRaidPanel apiClient={apiClient} />
-            <TradingPanel apiClient={apiClient} />
-            <TrainerCardPreview apiClient={apiClient} />
-            <TrainerRecoveryPanel apiClient={apiClient} />
-            <AchievementsPanel apiClient={apiClient} />
-            <ShopPanel apiClient={apiClient} />
-            <UpgradePanel apiClient={apiClient} />
-            <CosmeticsPanel apiClient={apiClient} />
             <ChallengeTowerPanel />
             <EvolutionPanel />
             {bossClears.length > 0 && (
@@ -241,8 +258,34 @@ export default function Home({ onNavigate, apiClient = pokemonAPI, today = new D
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {section === 'social' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PvpPanel apiClient={apiClient} onNavigate={featureFlags.leaderboards ? onNavigate : null} />
+            <CoopRaidPanel apiClient={apiClient} />
+            <TradingPanel apiClient={apiClient} />
+          </div>
+        )}
+
+        {section === 'shop' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ShopPanel apiClient={apiClient} />
+            <UpgradePanel apiClient={apiClient} />
+            <CosmeticsPanel apiClient={apiClient} />
+          </div>
+        )}
+
+        {section === 'profile' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TrainerCardPreview apiClient={apiClient} />
+            <AchievementsPanel apiClient={apiClient} />
+            <CollectionMasteryPanel apiClient={apiClient} />
+            <TrainerRecoveryPanel apiClient={apiClient} />
+          </div>
+        )}
       </div>
     </div>
   );

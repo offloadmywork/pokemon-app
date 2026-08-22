@@ -175,56 +175,109 @@ describe('Home Page', () => {
     expect(screen.getByText('Water / Ice boosted')).toBeInTheDocument();
   });
 
+  // Scenario: Home is a tabbed hub, not a 13-panel dump
+  //   Given a trainer opens Home
+  //   When they look at the hub
+  //   Then Play is the default section and other content lives behind section tabs
+  it('should default to the Play section and hide other sections until selected', () => {
+    render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+
+    expect(screen.getByRole('tab', { name: 'Play', selected: true })).toBeInTheDocument();
+    expect(screen.getByText('Daily Quests')).toBeInTheDocument();
+    expect(screen.queryByText('PvP Arena')).not.toBeInTheDocument();
+    expect(screen.queryByText('Trainer Shop')).not.toBeInTheDocument();
+  });
+
+  it('should reveal Social panels only from the Social tab', () => {
+    render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Social' }));
+
+    expect(screen.getByText('PvP Arena')).toBeInTheDocument();
+    expect(screen.getByText('Co-op Raids')).toBeInTheDocument();
+    expect(screen.getByText('Trading Post')).toBeInTheDocument();
+    expect(screen.queryByText('Daily Quests')).not.toBeInTheDocument();
+  });
+
+  it('should reveal economy panels from the Shop tab', () => {
+    render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Shop' }));
+
+    expect(screen.getByText('Trainer Shop')).toBeInTheDocument();
+    expect(screen.getByText('Trainer Upgrades')).toBeInTheDocument();
+    expect(screen.getByText('Trainer Cosmetics')).toBeInTheDocument();
+  });
+
+  it('should reveal profile panels from the Profile tab', () => {
+    render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }));
+
+    expect(screen.getByText('Achievements')).toBeInTheDocument();
+    expect(screen.getByText('Trainer Card Preview')).toBeInTheDocument();
+    expect(screen.getByText('Trainer Recovery')).toBeInTheDocument();
+  });
+
   it('should surface the PvP arena panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Social' }));
 
     expect(screen.getByText('PvP Arena')).toBeInTheDocument();
   });
 
   it('should surface the Co-op Raids panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Social' }));
 
     expect(screen.getByText('Co-op Raids')).toBeInTheDocument();
   });
 
   it('should surface the Trading panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Social' }));
 
     expect(screen.getByText('Trading Post')).toBeInTheDocument();
   });
 
   it('should surface the Trainer Shop panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Shop' }));
 
     expect(screen.getByText('Trainer Shop')).toBeInTheDocument();
   });
 
   it('should surface the Trainer Upgrades panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Shop' }));
 
     expect(screen.getByText('Trainer Upgrades')).toBeInTheDocument();
   });
 
   it('should surface the Trainer Cosmetics panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Shop' }));
 
     expect(screen.getByText('Trainer Cosmetics')).toBeInTheDocument();
   });
 
   it('should surface the Achievements panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }));
 
     expect(screen.getByText('Achievements')).toBeInTheDocument();
   });
 
   it('should surface the Trainer Card preview', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }));
 
     expect(screen.getByText('Trainer Card Preview')).toBeInTheDocument();
   });
 
   it('should surface the trainer recovery code panel', () => {
     render(<Home onNavigate={vi.fn()} apiClient={mockApiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }));
 
     expect(screen.getByText('Trainer Recovery')).toBeInTheDocument();
   });
