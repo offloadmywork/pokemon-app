@@ -1,8 +1,8 @@
 # Pokemon App — Roadmap / Status
 
 ## Current Phase
-- **Phase:** Phase 3 — per `docs/GDD.md`
-- **Focus:** Post-Phase-3 polish review
+- **Phase:** Phase 4 — Live Ops and Retention (GDD v1.1 candidate in progress)
+- **Focus:** Weekly Missions slice
 
 ## Current Feature: Daily Quests
 ### Implemented
@@ -479,3 +479,21 @@
 
 ## Notes
 - Keep implementation BDD-first: add a scenario/test for each new quest type / streak rule.
+
+## Current Feature: Weekly Missions (Phase 4 Live Ops)
+### Implemented
+- ✅ Pure weekly mission domain rules with ISO week keys (`src/game/weeklyMissions.js`)
+- ✅ Level-scaled core missions: catches, battle wins, daily quest sets completed
+- ✅ Advanced mission rotation unlocks by level: rare catches, evolutions, tower floors, co-op raid victories
+- ✅ Non-mutating progress application clamped at mission targets
+- ✅ Reward resolution pays each mission once and grants a one-time weekly completion chest (ultra balls + coins)
+- ✅ BDD coverage: 17 domain tests + 3 Worker API route tests
+- ✅ D1 schema/migration added for `weekly_missions` (0019)
+- ✅ Worker API: GET `/api/weekly-missions` (auto-generates the current week), POST `/api/weekly-missions/progress`, POST `/api/weekly-missions/claim-all` (XP + wallet coins + chest item)
+- ✅ API client exposes weekly mission list/progress/claim methods
+- ✅ Gameplay event wiring (best-effort): catches, rare catches, PvP wins, evolutions, tower floors, co-op raid victories, and fully claimed daily quest days
+
+### Next
+- Home Weekly Missions panel UI (ViewModel + component + claim feedback)
+- Weekly mission reset/rotation verification across week boundaries
+- Extend KPI snapshot with weekly mission engagement once production data exists

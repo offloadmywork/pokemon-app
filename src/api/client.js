@@ -313,6 +313,28 @@ class PokemonAPI {
     });
   }
 
+  // ===== WEEKLY MISSIONS API =====
+  async getWeeklyMissions() {
+    const userId = await this.getUserId();
+    return this.request(`/api/weekly-missions?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async progressWeeklyMissions(event, amount = 1) {
+    const userId = await this.getUserId();
+    return this.request('/api/weekly-missions/progress', {
+      method: 'POST',
+      body: JSON.stringify({ event, amount, user_id: userId }),
+    });
+  }
+
+  async claimAllWeeklyMissions() {
+    const userId = await this.getUserId();
+    return this.request('/api/weekly-missions/claim-all', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
   // ===== BOSS CLEAR PROGRESSION API =====
   async getBossClears() {
     const userId = await this.getUserId();

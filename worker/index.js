@@ -13,8 +13,14 @@ import { getCosmetic, COSMETIC_CATALOG, previewCosmeticPurchase } from '../src/g
 import { previewShopPurchase, previewUpgradePurchase } from '../src/game/economy.js';
 import { ACHIEVEMENT_CATALOG, evaluateCollectionAchievements, getAchievement } from '../src/game/achievements.js';
 import { calculatePvpRewards, resolvePvpBattleResult } from '../src/game/pvp.js';
-import { applyDailyQuestStreakAfterClaim } from './dailyQuestStreaks.js';
+import { applyDailyQuestStreakAfterClaim, grantUserItem } from './dailyQuestStreaks.js';
 import { listBossClears, recordBossClear } from './bossProgress.js';
+import { getWeekKey } from '../src/game/weeklyMissions.js';
+import {
+  ensureWeeklyMissions,
+  incrementWeeklyMissionProgress,
+  claimWeeklyMissionRewards,
+} from './weeklyMissions.js';
 import { createCoopRaidRoom, getCoopRaidRoom, joinCoopRaidRoom, recordCoopRaidAttempt } from './coopRaids.js';
 import { getPlayerWallet, grantPlayerCoins } from './playerWallet.js';
 import { findQueuedPvpOpponent, getPvpOpponentTeam, leavePvpQueue, upsertPvpQueueEntry } from './pvpQueue.js';
@@ -119,6 +125,27 @@ const incrementDailyQuestsForEvent = async (db, userId, event, amount = 1) => {
     // If daily quests haven't been generated yet today, we don't auto-generate here.
     // The Home screen fetch (`GET /api/daily-quests`) handles generation.
     await incrementDailyQuestProgressByTemplateKey(db, userId, key, amount);
+  }
+};
+
+// Best-effort weekly mission progress for gameplay events (Phase 4 Live Ops).
+const WEEKLY_EVENT_MAP = {
+  catch: 'catches',
+  rareCatch: 'rare-catches',
+  battleWin: 'battle-wins',
+  evolvePokemon: 'evolutions',
+  towerFloorComplete: 'tower-floors',
+  raidVictory: 'raid-victories',
+};
+
+const incrementWeeklyMissionsForEvent = async (db, userId, event, amount = 1) => {
+  if (!userId || !event) return;
+  const weeklyEvent = WEEKLY_EVENT_MAP[event];
+  if (!weeklyEvent) return;
+  try {
+    await incrementWeeklyMissionProgress(db, userId, weeklyEvent, amount);
+  } catch {
+    // Weekly mission progress is best-effort; never fail the gameplay request.
   }
 };
 
@@ -386,6 +413,7 @@ app.post('/api/caught', async (c) => {
     // Progress daily quests (if they exist for today)
     if (data.user_id) {
       await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'catch', 1);
+      await incrementWeeklyMissionsForEvent(c.env.DB, data.user_id, 'catch', 1);
 
       const { results: caughtPokemon } = await c.env.DB.prepare(
         'SELECT rarity FROM pokemon WHERE id = ?'
@@ -393,6 +421,7 @@ app.post('/api/caught', async (c) => {
 
       if (RARE_QUEST_RARITIES.has(caughtPokemon[0]?.rarity)) {
         await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'rareCatch', 1);
+        await incrementWeeklyMissionsForEvent(c.env.DB, data.user_id, 'rareCatch', 1);
       }
     }
 
@@ -1508,6 +1537,17 @@ const claimAllDailyQuests = async (c) => {
       today
     );
 
+    // A fully claimed day counts as one weekly 'daily-quests-completed' mission step.
+    const allClaimedToday = (todaysQuests || []).length > 0
+      && todaysQuests.every((quest) => Boolean(quest.claimed_at));
+    if (allClaimedToday) {
+      try {
+        await incrementWeeklyMissionProgress(c.env.DB, user_id, 'daily-quests-completed', 1);
+      } catch {
+        // best-effort
+      }
+    }
+
     return c.json({ claimed: updated, claimedCount: updated.length, daily_streak: dailyStreak });
   } catch (error) {
     return c.json({ error: error.message }, 500);
@@ -1522,6 +1562,59 @@ app.post('/api/quests/daily/:id/claim', claimDailyQuest);
 app.post('/api/daily-quests/:id/claim', claimDailyQuest);
 app.post('/api/quests/daily/claim-all', claimAllDailyQuests);
 app.post('/api/daily-quests/claim-all', claimAllDailyQuests);
+
+// ===== WEEKLY MISSIONS API (Phase 4: Live Ops & Retention) =====
+const getWorkerWeekKey = () => getWeekKey();
+
+const listWeeklyMissionsRoute = async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    const missions = await ensureWeeklyMissions(c.env.DB, user_id);
+    return c.json({ week_key: getWorkerWeekKey(), missions });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+const updateWeeklyMissionProgressRoute = async (c) => {
+  try {
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.req.query('user_id') || data?.user_id;
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    const amount = Number(data?.amount) || 1;
+    const result = await incrementWeeklyMissionProgress(c.env.DB, user_id, data?.event, amount);
+    return c.json(result.updated);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+const claimWeeklyMissionsRoute = async (c) => {
+  try {
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.req.query('user_id') || data?.user_id;
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    const result = await claimWeeklyMissionRewards(
+      c.env.DB,
+      user_id,
+      undefined,
+      async (xp) => { await grantPlayerXpReward(c.env.DB, user_id, xp); },
+      async (reward) => addWalletReward(c.env.DB, user_id, reward),
+      async (itemId, quantity) => { await grantUserItem(c.env.DB, user_id, itemId, quantity); }
+    );
+    return c.json(result);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+app.get('/api/weekly-missions', listWeeklyMissionsRoute);
+app.post('/api/weekly-missions/progress', updateWeeklyMissionProgressRoute);
+app.post('/api/weekly-missions/claim-all', claimWeeklyMissionsRoute);
 
 // ===== CHALLENGE TOWER API =====
 const ensureTowerProgress = async (db, userId) => {
@@ -1614,6 +1707,7 @@ app.post('/api/tower/complete', async (c) => {
     ).bind(user_id).all();
 
     await incrementDailyQuestsForEvent(c.env.DB, user_id, 'towerFloorComplete', 1);
+    await incrementWeeklyMissionsForEvent(c.env.DB, user_id, 'towerFloorComplete', 1);
 
     const updatedProgress = updated[0];
     const isComplete = updatedProgress.current_floor > maxFloor;
@@ -1880,6 +1974,8 @@ app.post('/api/coop-raids/:id/attack', async (c) => {
         const rewardProgress = await grantPlayerXpReward(c.env.DB, reward.user_id, reward.xp);
         const rewardWallet = await grantPlayerCoins(c.env.DB, reward.user_id, reward.coins);
 
+        await incrementWeeklyMissionsForEvent(c.env.DB, reward.user_id, 'raidVictory', 1);
+
         if (rewardProgress) {
           progress.push({ user_id: reward.user_id, ...rewardProgress });
         }
@@ -2013,6 +2109,10 @@ app.post('/api/pvp/matches', async (c) => {
     const rewards = calculatePvpRewards(result.outcome);
     const progress = await grantPlayerXpReward(c.env.DB, user_id, rewards.xp);
     const wallet = await grantPlayerCoins(c.env.DB, user_id, rewards.coins);
+
+    if (result.winner === 'player') {
+      await incrementWeeklyMissionsForEvent(c.env.DB, user_id, 'battleWin', 1);
+    }
 
     return c.json({
       match,
@@ -2190,6 +2290,7 @@ const evolvePokemon = async (c) => {
     }
 
     await incrementDailyQuestsForEvent(c.env.DB, user_id, 'evolvePokemon', 1);
+    await incrementWeeklyMissionsForEvent(c.env.DB, user_id, 'evolvePokemon', 1);
 
     return c.json({
       success: true,
