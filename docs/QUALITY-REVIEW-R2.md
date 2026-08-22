@@ -32,7 +32,7 @@ Every round-1 critical fix spot-checked is genuinely implemented: real synthesiz
 ## Remaining Issues → Round 3 Epics
 1. [major] No background music → **E7: Music & Audio Mix** (procedural route/battle loops, volume slider replacing binary mute)
 2. [major] Content still panel-shaped → **E8: Content Depth** (needs product direction for scope)
-3. [major] Type emojis as sprite language → **E9: Type Badge Art** (CSS-drawn type chips via existing TypeBadge component)
+3. [major] Type emojis as sprite language → ✅ **DONE** (TypeBadge chips shipped)
 4. [minor] Tutorial gap on Team → ✅ FIXED immediately after review (TutorialCoach added to TeamPage)
 5. [minor] Thin sound design ceiling → tuning pass under E7
 6. [minor] Binary mute → volume slider under E7
