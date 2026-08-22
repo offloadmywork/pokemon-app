@@ -4,7 +4,8 @@ import Browse from "@/pages/Browse";
 import Collection from "@/pages/Collection";
 import Leaderboards from "@/pages/Leaderboards";
 import { featureFlags } from "@/config/featureFlags";
-import { Home as HomeIcon, Map, Shield, Star, Trophy } from "lucide-react";
+import { Home as HomeIcon, Map, Shield, Star, Trophy, Volume2, VolumeX } from "lucide-react";
+import { isMuted, toggleMuted, playSfx } from "@/game/audio";
 
 const primaryTabs = [
   { key: 'home', label: 'Home', icon: HomeIcon },
@@ -16,16 +17,32 @@ const primaryTabs = [
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [muted, setMuted] = useState(() => isMuted());
 
   const navigate = (page) => {
     if (page === 'leaderboards' && !featureFlags.leaderboards) return;
+    playSfx('ui_tap');
     setCurrentPage(page);
+  };
+
+  const handleToggleMute = () => {
+    const next = toggleMuted();
+    setMuted(next);
+    if (!next) playSfx('ui_tap');
   };
 
   const visibleTabs = primaryTabs.filter((tab) => !tab.feature || featureFlags[tab.feature]);
 
   return (
     <div className="min-h-screen">
+      <button
+        type="button"
+        aria-label={muted ? 'Unmute game sounds' : 'Mute game sounds'}
+        onClick={handleToggleMute}
+        className="fixed top-3 right-3 z-[60] flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1f2a44] bg-[#fff7d6]/95 text-[#1f2a44] shadow-[0_3px_0_#1f2a44]"
+      >
+        {muted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
+      </button>
       <div
         data-testid="app-content"
         style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}

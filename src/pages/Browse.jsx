@@ -10,6 +10,7 @@ import { incrementDailyQuestsForEvent } from "@/game/dailyQuestProgress";
 import { getBossClearKey, loadBossClears, recordBossClear } from "@/game/bossProgress";
 import { getActiveSeasonalEvent, selectSeasonalEncounterType } from "@/game/seasonalEvents";
 import { getItemById } from "@/game/items";
+import { playSfx } from "@/game/audio";
 import { applyLureDurationBonus, getLureByItemId, selectLureEncounterType } from "@/game/lures";
 import { getCosmetic } from "@/game/cosmetics";
 import playerSprite from "@/assets/player-spritesheet.svg";
@@ -517,6 +518,7 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
         setTimeout(() => {
           setLevel(newLevel);
           setShowLevelUp(getLevelConfig(newLevel));
+          playSfx('level_up');
           setTimeout(() => setShowLevelUp(null), 3500);
         }, 500);
       }
