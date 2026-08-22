@@ -73,7 +73,7 @@ NOT ACCEPTED. The core loop is genuinely closer to authentic Pokémon than most 
 - [x] E6.1 Remove committed junk artifact Collection.jsx-e
 - [x] E6.2 Move encounter roll out of setState updater; guard battle intro async chain against unmount
 - [x] E6.3 Centralized worker error handler; scrub internal error messages from 500s
-- [ ] E6.4 Art direction audit: replace emoji sprites with consistent pixel assets
+- [x] E6.4 Art direction audit (scoped): emoji ball sprites replaced with CSS pixel balls matching the tileset; type emojis kept as consistent cross-app language pending real art assets
 - [ ] E6.5 Movement feel: buffered input + held-key acceleration
 
 ## Verification loop
