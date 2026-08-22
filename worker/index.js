@@ -25,6 +25,15 @@ import {
   getMasteryStatus,
   claimMasteryTier,
 } from './collectionMastery.js';
+import {
+  getOrCreateRecoveryPhrase,
+  findUserIdByRecoveryPhrase,
+} from './recoveryCodes.js';
+import {
+  ensureRecoveryCode,
+  findUserIdByRecoveryCode,
+} from './accountRecovery.js';
+import { isValidRecoveryCodeFormat } from '../src/game/recoveryCode.js';
 import { createCoopRaidRoom, getCoopRaidRoom, joinCoopRaidRoom, recordCoopRaidAttempt } from './coopRaids.js';
 import { getPlayerWallet, grantPlayerCoins } from './playerWallet.js';
 import { findQueuedPvpOpponent, getPvpOpponentTeam, leavePvpQueue, upsertPvpQueueEntry } from './pvpQueue.js';
@@ -208,6 +217,71 @@ const mapBossClearToKpiRow = (row) => ({
 
 // Enable CORS
 app.use('/api/*', cors());
+
+// ===== ACCOUNT RECOVERY API (Epic E4: Save Safety) =====
+app.get('/api/recovery/code', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    await ensureUserExists(c.env.DB, user_id);
+    const recovery_code = await ensureRecoveryCode(c.env.DB, user_id);
+    return c.json({ recovery_code });
+  } catch (error) {
+    console.error('recovery code error:', error);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+  }
+});
+
+app.post('/api/recovery/restore', async (c) => {
+  try {
+    const data = await c.req.json();
+
+    // Unified restore endpoint: accepts either a word phrase or a legacy
+    // XXXX-XXXX recovery code. Format-specific validation errors stay 400;
+    // unknown-but-well-formed identifiers are a uniform 404.
+    if (data?.phrase) {
+      const result = await findUserIdByRecoveryPhrase(c.env.DB, data.phrase);
+      if (result.error) {
+        const isUnknown = /no save found/i.test(result.error);
+        return c.json({ error: result.error }, isUnknown ? 404 : 400);
+      }
+      await ensureUserExists(c.env.DB, result.user_id);
+      return c.json({ user_id: result.user_id });
+    }
+
+    if (data?.code) {
+      if (!isValidRecoveryCodeFormat(data.code)) {
+        return c.json({ error: 'That does not look like a recovery code. Expected format: XXXX-XXXX.' }, 400);
+      }
+      const userId = await findUserIdByRecoveryCode(c.env.DB, data.code);
+      if (!userId) return c.json({ error: 'No trainer found for that code. Check the format (XXXX-XXXX).' }, 404);
+      await ensureUserExists(c.env.DB, userId);
+      return c.json({ user_id: userId });
+    }
+
+    return c.json({ error: 'phrase or code is required' }, 400);
+  } catch (error) {
+    console.error('recovery/restore failed:', error);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+  }
+});
+
+// ===== RECOVERY PHRASE API (Epic E4: Save Safety) =====
+app.post('/api/recovery/register', async (c) => {
+  try {
+    const data = await c.req.json();
+    if (!data?.user_id) return c.json({ error: 'user_id is required' }, 400);
+
+    await ensureUserExists(c.env.DB, data.user_id);
+    const result = await getOrCreateRecoveryPhrase(c.env.DB, data.user_id);
+    if (result.error) return c.json({ error: result.error }, 500);
+    return c.json(result);
+  } catch (error) {
+    console.error('recovery/register failed:', error);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+  }
+});
 
 // Backstop error handler: never leak internals to clients (Epic E6.3).
 app.onError((err, c) => {

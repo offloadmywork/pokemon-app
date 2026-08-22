@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pokemonAPI } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Copy, KeyRound } from "lucide-react";
+import { isValidRecoveryCodeFormat, normalizeRecoveryCode } from "@/game/recoveryCode";
 
 async function defaultCopyRecoveryCode(recoveryCode) {
   if (!globalThis.navigator?.clipboard?.writeText) return;
@@ -15,6 +16,9 @@ export default function TrainerRecoveryPanel({
   const [recoveryCode, setRecoveryCode] = useState('');
   const [status, setStatus] = useState('loading');
   const [copyStatus, setCopyStatus] = useState('idle');
+  const [restoreInput, setRestoreInput] = useState('');
+  const [restoreStatus, setRestoreStatus] = useState('idle');
+  const [restoreError, setRestoreError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -45,6 +49,32 @@ export default function TrainerRecoveryPanel({
       setTimeout(() => setCopyStatus('idle'), 2000);
     } catch {
       setCopyStatus('error');
+    }
+  };
+
+  const handleRestore = async () => {
+    const normalized = normalizeRecoveryCode(restoreInput);
+    if (!isValidRecoveryCodeFormat(normalized)) {
+      setRestoreStatus('error');
+      setRestoreError('Expected format: XXXX-XXXX.');
+      return;
+    }
+
+    setRestoreStatus('loading');
+    setRestoreError('');
+    try {
+      const result = await apiClient.restoreFromRecoveryCode(normalized);
+      if (result?.user_id) {
+        apiClient.setActiveUserId(result.user_id);
+        setRestoreStatus('success');
+        setTimeout(() => globalThis.location?.reload?.(), 1200);
+      } else {
+        setRestoreStatus('error');
+        setRestoreError('No trainer found for that code.');
+      }
+    } catch (err) {
+      setRestoreStatus('error');
+      setRestoreError(err?.message || 'Could not restore that code.');
     }
   };
 
@@ -101,6 +131,36 @@ export default function TrainerRecoveryPanel({
             Copy failed. Select the code manually.
           </p>
         )}
+
+        {/* Restore flow: enter a code from another device */}
+        <div className="mt-5 border-t border-[#c79a36]/40 pt-4">
+          <p className="text-xs font-black uppercase tracking-wide text-[#8a5c18] mb-2">
+            Restoring on this device?
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={restoreInput}
+              onChange={(e) => setRestoreInput(e.target.value)}
+              placeholder="XXXX-XXXX"
+              aria-label="Recovery code"
+              className="flex-1 rounded border-2 border-[#c79a36]/60 bg-white px-3 py-2 text-sm font-black uppercase tracking-widest text-[#4f3514]"
+            />
+            <Button onClick={handleRestore} className="h-11 px-5 text-base font-bold">
+              Restore Account
+            </Button>
+          </div>
+          {restoreStatus === 'success' && (
+            <p className="mt-2 text-sm font-bold text-[#2f6f3a]" role="status">
+              Account restored! Reloading with your original team...
+            </p>
+          )}
+          {restoreStatus === 'error' && (
+            <p className="mt-2 text-sm font-bold text-[#7a241c]" role="alert">
+              {restoreError || 'Could not restore that code.'}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -39,7 +39,26 @@ class PokemonAPI {
   }
 
   async getTrainerRecoveryCode() {
-    return this.getUserId();
+    const userId = await this.getUserId();
+    return this.request(`/api/recovery/code?user_id=${encodeURIComponent(userId)}`)
+      .then((res) => res.recovery_code || userId)
+      .catch(() => userId);
+  }
+
+  async restoreFromRecoveryCode(code) {
+    return this.request('/api/recovery/restore', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  setActiveUserId(userId) {
+    this.userId = userId;
+    try {
+      localStorage.setItem(USER_ID_KEY, userId);
+    } catch {
+      // Storage unavailable; session-only restore.
+    }
   }
 
   async request(endpoint, options = {}) {
