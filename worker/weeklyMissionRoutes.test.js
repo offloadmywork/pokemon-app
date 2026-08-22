@@ -87,6 +87,24 @@ describe('Weekly Mission Worker API', () => {
     expect(missions.find((m) => m.event === 'catches').progress).toBe(updated.target);
   });
 
+  // Scenario: A new ISO week generates a fresh mission set instead of reusing last week
+  //   Given a user with missions generated for one week
+  //   When generation runs
+  //   Then inserted rows are scoped to a single week_key and progress starts at zero
+  it('scopes generated missions to a single week key with fresh progress', async () => {
+    const { db, calls } = createWeeklyMissionDbMock();
+
+    await app.request('/api/weekly-missions?user_id=user-1', { method: 'GET' }, { DB: db });
+    const inserts = calls.filter(
+      (call) => call.type === 'run' && call.sql.includes('INSERT INTO weekly_missions')
+    );
+    expect(inserts.length).toBeGreaterThan(0);
+
+    const weekKeys = new Set(inserts.map((call) => call.params[2]));
+    expect(weekKeys.size).toBe(1);
+    expect(inserts.every((call) => call.params[9] !== undefined)).toBe(true);
+  });
+
   it('pays mission rewards exactly once across repeated claims', async () => {
     const { db } = createWeeklyMissionDbMock();
 

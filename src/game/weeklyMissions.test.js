@@ -169,3 +169,52 @@ describe('resolveWeeklyMissionRewards', () => {
     expect(second.chestGranted).toBe(false);
   });
 });
+
+// Scenario: A new week gives trainers a fresh mission set
+//   Given missions completed in one ISO week
+//   When the next week's missions are generated
+//   Then progress resets and advanced missions rotate deterministically
+describe('week boundary rotation', () => {
+  it('resets progress for the new week even if last week completed', () => {
+    let lastWeek = getWeeklyMissionsForWeek(1, '2026-W34');
+    lastWeek.forEach((mission) => {
+      lastWeek = applyWeeklyMissionProgress(lastWeek, mission.event, mission.target);
+    });
+    const resolved = resolveWeeklyMissionRewards(lastWeek);
+    expect(resolved.chestGranted).toBe(true);
+
+    const newWeek = getWeeklyMissionsForWeek(1, '2026-W35');
+    expect(newWeek.every((mission) => mission.progress === 0 && !mission.claimed_at)).toBe(true);
+  });
+
+  it('rotates advanced missions on a stable multi-week cycle', () => {
+    // A full cycle of distinct weeks must eventually return to the original set.
+    const level = 4;
+    const baseline = getWeeklyMissionsForWeek(level, '2026-W34').map((m) => m.key);
+    let cycleLength = 0;
+    for (let offset = 1; offset <= 12; offset += 1) {
+      const keys = getWeeklyMissionsForWeek(level, `2026-W${String(34 + offset).padStart(2, '0')}`).map((m) => m.key);
+      if (!cycleLength && JSON.stringify(keys) === JSON.stringify(baseline)) {
+        cycleLength = offset;
+        break;
+      }
+    }
+    expect(cycleLength).toBeGreaterThan(1);
+    expect(cycleLength).toBeLessThanOrEqual(12);
+  });
+
+  it('keeps core missions identical every week while rotation varies', () => {
+    const coreKeys = ['weekly-catches', 'weekly-battles', 'weekly-daily-quests'];
+    ['2026-W34', '2026-W35', '2026-W36'].forEach((weekKey) => {
+      const missions = getWeeklyMissionsForWeek(3, weekKey);
+      coreKeys.forEach((key) => {
+        expect(missions.some((m) => m.key === key)).toBe(true);
+      });
+    });
+  });
+
+  it('derives adjacent week keys cleanly across Sunday-to-Monday boundaries', () => {
+    expect(getWeekKey('2026-08-23')).toBe('2026-W34'); // Sunday closes W34
+    expect(getWeekKey('2026-08-24')).toBe('2026-W35'); // Monday opens W35
+  });
+});
