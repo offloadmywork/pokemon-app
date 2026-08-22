@@ -15,9 +15,9 @@ export default function CollectionMasteryPanel({ apiClient = pokemonAPI }) {
 
   useEffect(() => {
     (async () => {
-      await viewModel.loadStatus();
-      setTiers(viewModel.tiers);
-      setCaughtCount(viewModel.caughtCount);
+      await viewModel.loadMasteryStatus();
+      setTiers(viewModel.status?.tiers || []);
+      setCaughtCount(viewModel.status?.caught_count || 0);
       setIsLoading(viewModel.isLoading);
       setError(viewModel.error);
     })();
@@ -25,7 +25,7 @@ export default function CollectionMasteryPanel({ apiClient = pokemonAPI }) {
 
   const handleClaim = async (tierId) => {
     const result = await viewModel.claimTier(tierId);
-    setTiers([...viewModel.tiers]);
+    setTiers(viewModel.status?.tiers || []);
     if (result?.wallet) {
       setClaimFeedback({ tierId, wallet: result.wallet });
       setClaimError(null);

@@ -1,55 +1,43 @@
-// CollectionMasteryViewModel - Business logic for Collection Mastery Tiers (Phase 4)
-// Testable without browser - pure state management
+// CollectionMasteryViewModel - Business logic for Pokedex Mastery (Phase 4 Live Ops)
 
 export class CollectionMasteryViewModel {
   constructor(apiClient) {
     this.api = apiClient;
-
-    this.tiers = [];
-    this.currentTier = null;
-    this.caughtCount = 0;
+    this.status = null;
+    this.lastClaimResult = null;
     this.claimError = null;
     this.isLoading = true;
     this.error = null;
   }
 
-  async loadStatus() {
+  async loadMasteryStatus() {
     this.isLoading = true;
     this.error = null;
-    this.claimError = null;
-
+    
     try {
-      const status = await this.api.getMasteryStatus();
-      this.setStatus(status);
-      return this.tiers;
+      this.status = await this.api.getMasteryStatus();
+      return this.status;
     } catch (err) {
       this.error = err.message;
-      console.error('Failed to load collection mastery:', err);
-      return [];
+      return null;
     } finally {
       this.isLoading = false;
     }
-  }
-
-  setStatus(status) {
-    this.tiers = (status?.tiers || []).map((tier) => ({ ...tier }));
-    this.currentTier = status?.current_tier || null;
-    this.caughtCount = Number(status?.caught_count) || 0;
-  }
-
-  hasClaimableTiers() {
-    return (this.tiers || []).some((tier) => tier.claimable && !tier.claimed);
   }
 
   async claimTier(tierId) {
     this.claimError = null;
     try {
       const result = await this.api.claimMasteryTier(tierId);
-      const claimedTier = this.tiers.find((tier) => tier.id === tierId);
-      if (claimedTier) {
-        claimedTier.claimed = true;
-        claimedTier.claimable = false;
+      if (!result?.tier) {
+        this.claimError = 'Failed to claim tier.';
+        return null;
       }
+      this.lastClaimResult = result;
+      // Refresh to get updated claimed/claimable flags
+      await this.loadMasteryStatus();
+      // Restore result after refresh cleared it (if loadMasteryStatus clears it)
+      this.lastClaimResult = result;
       return result;
     } catch (err) {
       this.claimError = err.message;
