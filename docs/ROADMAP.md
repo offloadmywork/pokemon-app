@@ -486,9 +486,11 @@
 - ✅ Worker API: GET `/api/mastery` (tier status + unclaimed rewards), POST `/api/mastery/claim` (one-time claim persisted in `user_achievements` as `mastery_<tier>` with wallet rewards)
 - ✅ API client exposes mastery status/claim methods
 - ✅ BDD coverage: 3 Worker route tests (status, claim-once, unreached rejection)
+- ✅ CollectionMasteryViewModel with load, claim, and claimable detection (5 BDD tests)
+- ✅ Home surfaces a Collection Mastery panel with tier list, caught count, claim buttons, and reward/error feedback (4 BDD tests)
 
 ### Next
-- Home mastery panel UI surfacing tier status and claim feedback
+- Collection Mastery slice complete for now; review next Live Ops item after production feedback
 
 ## Notes
 - Keep implementation BDD-first: add a scenario/test for each new quest type / streak rule.
