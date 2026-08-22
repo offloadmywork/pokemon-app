@@ -209,6 +209,12 @@ const mapBossClearToKpiRow = (row) => ({
 // Enable CORS
 app.use('/api/*', cors());
 
+// Backstop error handler: never leak internals to clients (Epic E6.3).
+app.onError((err, c) => {
+  console.error('Unhandled API error:', err);
+  return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+});
+
 // ===== USER/SESSION API =====
 // Create or get user by ID
 app.post('/api/user', async (c) => {
@@ -240,7 +246,7 @@ app.post('/api/user', async (c) => {
       existing: wasExisting
     }, wasExisting ? 200 : 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -263,7 +269,7 @@ app.get('/api/user/:id', async (c) => {
       last_active_at: results[0].last_active_at
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ================================
@@ -276,7 +282,7 @@ app.get('/api/pokemon', async (c) => {
     ).all();
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -294,7 +300,7 @@ app.get('/api/pokemon/:id', async (c) => {
     
     return c.json(results[0]);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -332,7 +338,7 @@ app.get('/api/pokemon/random/get', async (c) => {
     
     return c.json(results[0]);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -357,7 +363,7 @@ app.post('/api/pokemon', async (c) => {
     
     return c.json({ id, ...data }, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -389,7 +395,7 @@ app.get('/api/caught', async (c) => {
     
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -430,7 +436,7 @@ app.post('/api/caught', async (c) => {
 
     return c.json({ id, ...data }, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -517,7 +523,7 @@ app.post('/api/starter/claim', async (c) => {
     }, 201);
     
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================================
@@ -537,7 +543,7 @@ app.patch('/api/caught/:id', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -552,7 +558,7 @@ app.delete('/api/caught/:id', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -570,7 +576,7 @@ app.get('/api/trades', async (c) => {
     const offers = await listTradeOffers(c.env.DB, userId);
     return c.json(offers);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -604,7 +610,7 @@ app.post('/api/trades', async (c) => {
 
     return c.json(tradeOffer, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -632,7 +638,7 @@ app.post('/api/trades/:id/accept', async (c) => {
 
     return c.json(result);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -660,7 +666,7 @@ app.post('/api/trades/:id/cancel', async (c) => {
 
     return c.json(result);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -688,7 +694,7 @@ app.post('/api/trades/:id/decline', async (c) => {
 
     return c.json(result);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // =====================
@@ -725,7 +731,7 @@ app.get('/api/player/progress', async (c) => {
     if (error.message.includes('no such table')) {
       return c.json({ xp: 0, level: 1 });
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -768,7 +774,7 @@ app.post('/api/player/progress', async (c) => {
 
     return c.json({ xp, level });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ================================================
@@ -794,7 +800,7 @@ app.get('/api/player/wallet', async (c) => {
         shards: 0,
       });
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -854,7 +860,7 @@ app.post('/api/shop/purchase', async (c) => {
       item: { item_id, quantity: nextItemQuantity },
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -878,7 +884,7 @@ app.get('/api/player/upgrades', async (c) => {
 
     return c.json({ user_id, upgrades });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -936,7 +942,7 @@ app.post('/api/upgrades/purchase', async (c) => {
       upgrade: { upgrade_id, level: preview.next_level },
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -964,7 +970,7 @@ app.get('/api/player/cosmetics', async (c) => {
       })),
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1014,7 +1020,7 @@ app.post('/api/cosmetics/purchase', async (c) => {
       cosmetic: { cosmetic_id, equipped: false },
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1069,7 +1075,7 @@ app.post('/api/cosmetics/equip', async (c) => {
       cosmetic: { cosmetic_id, equipped: true },
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -1104,7 +1110,7 @@ app.get('/api/player/achievements', async (c) => {
       })),
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1155,7 +1161,7 @@ app.post('/api/achievements/claim', async (c) => {
       wallet,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -1186,7 +1192,7 @@ app.get('/api/team', async (c) => {
     if (error.message.includes('no such table')) {
       return c.json([]);
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1256,7 +1262,7 @@ app.post('/api/team', async (c) => {
     
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1293,7 +1299,7 @@ app.patch('/api/team/heal', async (c) => {
     
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1318,7 +1324,7 @@ app.patch('/api/team/:pokemonId', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1342,7 +1348,7 @@ app.delete('/api/team/:pokemonId', async (c) => {
     
     return c.json({ success: true });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ================================================
@@ -1394,7 +1400,7 @@ const listDailyQuests = async (c) => {
 
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1434,7 +1440,7 @@ const updateDailyQuestProgress = async (c) => {
 
     return c.json(updated[0]);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1487,7 +1493,7 @@ const claimDailyQuest = async (c) => {
 
     return c.json({ ...updated[0], daily_streak: dailyStreak });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1553,7 +1559,7 @@ const claimAllDailyQuests = async (c) => {
 
     return c.json({ claimed: updated, claimedCount: updated.length, daily_streak: dailyStreak });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1578,7 +1584,7 @@ const listWeeklyMissionsRoute = async (c) => {
     const missions = await ensureWeeklyMissions(c.env.DB, user_id);
     return c.json({ week_key: getWorkerWeekKey(), missions });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1592,7 +1598,7 @@ const updateWeeklyMissionProgressRoute = async (c) => {
     const result = await incrementWeeklyMissionProgress(c.env.DB, user_id, data?.event, amount);
     return c.json(result.updated);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1613,7 +1619,7 @@ const claimWeeklyMissionsRoute = async (c) => {
     );
     return c.json(result);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -1630,7 +1636,7 @@ app.get('/api/mastery', async (c) => {
     await ensureUserExists(c.env.DB, user_id);
     return c.json(await getMasteryStatus(c.env.DB, user_id));
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1653,7 +1659,7 @@ app.post('/api/mastery/claim', async (c) => {
     if (result.error) return c.json({ error: result.error }, 400);
     return c.json(result);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1695,7 +1701,7 @@ app.get('/api/tower', async (c) => {
       current_floor: currentFloor,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1763,7 +1769,7 @@ app.post('/api/tower/complete', async (c) => {
       current_floor: currentFloor,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ================================================
@@ -1906,7 +1912,7 @@ app.get('/api/leaderboards', async (c) => {
     if (error.message.includes('no such table')) {
       return c.json({ key: c.req.query('key') || 'level', entries: [] });
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ================================================
@@ -1936,7 +1942,7 @@ app.post('/api/coop-raids', async (c) => {
 
     return c.json(raid, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -1968,7 +1974,7 @@ app.post('/api/coop-raids/:id/join', async (c) => {
 
     return c.json(raid);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2033,7 +2039,7 @@ app.post('/api/coop-raids/:id/attack', async (c) => {
       wallets,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ========================
@@ -2078,7 +2084,7 @@ app.post('/api/pvp/queue', async (c) => {
       opponent: null,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2092,7 +2098,7 @@ app.delete('/api/pvp/queue', async (c) => {
     await leavePvpQueue(c.env.DB, user_id);
     return c.json({ queued: false });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2107,7 +2113,7 @@ app.get('/api/pvp/matches', async (c) => {
     const matches = await listPvpMatchHistory(c.env.DB, user_id, limit);
     return c.json({ matches });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2162,7 +2168,7 @@ app.post('/api/pvp/matches', async (c) => {
       wallet,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -2238,7 +2244,7 @@ const listEvolutionOptions = async (c) => {
     if (error.message.includes('no such table')) {
       return c.json([]);
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -2350,7 +2356,7 @@ const evolvePokemon = async (c) => {
     if (error.message.includes('no such table')) {
       return c.json({ error: 'Evolution not available' }, 404);
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 };
 
@@ -2374,7 +2380,7 @@ app.get('/api/boss-clears', async (c) => {
     if (error.message.includes('no such table')) {
       return c.json([]);
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2391,7 +2397,7 @@ app.post('/api/boss-clears', async (c) => {
     const clear = await recordBossClear(c.env.DB, user_id, data);
     return c.json(clear);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -2471,7 +2477,7 @@ app.post('/api/pokemon/generate', async (c) => {
     });
   } catch (error) {
     console.error('Generation error:', error);
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2506,7 +2512,7 @@ app.post('/api/pokemon/generated', async (c) => {
       caught_id: caughtId
     }, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ===========================================
@@ -2527,7 +2533,7 @@ app.get('/api/items', async (c) => {
     
     return c.json(results);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2564,7 +2570,7 @@ app.post('/api/items', async (c) => {
     
     return c.json({ success: true, item_id, quantity }, 201);
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2596,7 +2602,7 @@ app.post('/api/items/:itemId/use', async (c) => {
     
     return c.json({ success: true, item_id, quantity: newQty });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2629,7 +2635,7 @@ app.put('/api/items/:itemId', async (c) => {
     
     return c.json({ success: true, item_id, quantity });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================
@@ -2667,7 +2673,7 @@ app.post('/api/player/sessions', async (c) => {
       ended_at,
     });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 
@@ -2690,7 +2696,7 @@ app.get('/api/metrics/kpis', async (c) => {
       now,
     }));
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
 // ====================

@@ -345,6 +345,12 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     const mc = getMap(loadProgress().level);
     return { x: mc.startX, y: mc.startY };
   });
+  const playerPosRef = useRef(playerPos);
+
+  // Keep the movement ref in sync for cooldown-gated reads.
+  useEffect(() => {
+    playerPosRef.current = playerPos;
+  }, [playerPos]);
 
   // Reset position when level changes
   useEffect(() => {
@@ -365,19 +371,20 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
     moveTimerRef.current = setTimeout(() => setIsMoving(false), MOVE_COOLDOWN);
 
-    setPlayerPos(prev => {
-      const newX = prev.x + dx;
-      const newY = prev.y + dy;
-      const map = mapConfig.data;
+    // Compute the next tile outside the state updater: React StrictMode
+    // double-invokes updaters, which would double-roll encounters.
+    const current = playerPosRef.current;
+    const newX = current.x + dx;
+    const newY = current.y + dy;
+    const map = mapConfig.data;
 
-      // Bounds check
-      if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) return prev;
-      // Wall check
-      if (!isWalkable(map[newY][newX])) return prev;
+    const inBounds = newY >= 0 && newY < map.length && newX >= 0 && newX < map[0].length;
+    const walkable = inBounds && isWalkable(map[newY][newX]);
+    if (walkable) {
+      setPlayerPos({ x: newX, y: newY });
+      playerPosRef.current = { x: newX, y: newY };
 
       const tile = map[newY][newX];
-
-      // Schedule side effects
       setTimeout(() => {
         if (isHealingSpot(tile)) {
           // Actually heal the team
@@ -396,9 +403,7 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
           triggerEncounter();
         }
       }, 50);
-
-      return { x: newX, y: newY };
-    });
+    }
   }, [encounterPhase, mapConfig, activeLure]);
 
   // ═══════════════════════════════════════════
