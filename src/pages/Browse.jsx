@@ -41,7 +41,8 @@ const VIEW_COLS = 9;
 const VIEW_ROWS = 7;
 const VIEWPORT_W = VIEW_COLS * TILE;  // 432
 const VIEWPORT_H = VIEW_ROWS * TILE;  // 336
-const MOVE_COOLDOWN = 200; // ms
+const MOVE_COOLDOWN = 200; // ms — initial step cost
+const SUSTAINED_MOVE_COOLDOWN = 130; // ms — faster cadence while a key is held
 const ACTIVE_LURE_KEY = 'pokemon-active-lure';
 
 // Direction offsets
@@ -194,6 +195,10 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
   const [isMoving, setIsMoving] = useState(false);
   const lastMoveRef = useRef(0);
   const moveTimerRef = useRef(null);
+  const heldDirRef = useRef(null);
+  const bufferedDirRef = useRef(null);
+  const bufferTimerRef = useRef(null);
+  const sustainedTimerRef = useRef(null);
 
   // Encounter state
   const [encounterPhase, setEncounterPhase] = useState(null); // null | 'flash' | 'battle' | 'no-team'
@@ -363,8 +368,22 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     if (encounterPhase) return;
 
     const now = Date.now();
-    if (now - lastMoveRef.current < MOVE_COOLDOWN) return;
+    if (now - lastMoveRef.current < MOVE_COOLDOWN) {
+      // Buffer the latest input so quick corner-turns never eat a step.
+      bufferedDirRef.current = dir;
+      if (!bufferTimerRef.current) {
+        const remaining = MOVE_COOLDOWN - (now - lastMoveRef.current);
+        bufferTimerRef.current = setTimeout(() => {
+          bufferTimerRef.current = null;
+          const buffered = bufferedDirRef.current;
+          bufferedDirRef.current = null;
+          if (buffered) movePlayer(buffered);
+        }, remaining + 1);
+      }
+      return;
+    }
     lastMoveRef.current = now;
+    bufferedDirRef.current = null;
 
     const { dx, dy } = DIR_DELTA[dir];
     setFacing(dir);
@@ -404,6 +423,16 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
           triggerEncounter();
         }
       }, 50);
+
+      // Held-key acceleration: while a direction is held, keep stepping at the
+      // faster sustained cadence instead of waiting for OS key-repeat.
+      if (heldDirRef.current === dir) {
+        if (sustainedTimerRef.current) clearTimeout(sustainedTimerRef.current);
+        sustainedTimerRef.current = setTimeout(() => {
+          sustainedTimerRef.current = null;
+          if (heldDirRef.current === dir) movePlayer(dir);
+        }, SUSTAINED_MOVE_COOLDOWN);
+      }
     }
   }, [encounterPhase, mapConfig, activeLure]);
 
@@ -411,23 +440,34 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
   // KEYBOARD CONTROLS
   // ═══════════════════════════════════════════
   useEffect(() => {
+    const keyMap = {
+      ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+      w: 'up', W: 'up', s: 'down', S: 'down', a: 'left', A: 'left', d: 'right', D: 'right',
+    };
     const handleKey = (e) => {
-      const keyMap = {
-        ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-        w: 'up', W: 'up', s: 'down', S: 'down', a: 'left', A: 'left', d: 'right', D: 'right',
-      };
       const dir = keyMap[e.key];
-      if (dir) {
-        e.preventDefault();
-        movePlayer(dir);
-      }
+      if (!dir) return;
+      e.preventDefault();
+      if (e.repeat) return; // we run our own sustained-step loop while held
+      heldDirRef.current = dir;
+      movePlayer(dir);
+    };
+    const handleKeyUp = (e) => {
+      const dir = keyMap[e.key];
+      if (dir && heldDirRef.current === dir) heldDirRef.current = null;
     };
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [movePlayer]);
 
   useEffect(() => () => {
     if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
+    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+    if (sustainedTimerRef.current) clearTimeout(sustainedTimerRef.current);
   }, []);
 
   // ═══════════════════════════════════════════
