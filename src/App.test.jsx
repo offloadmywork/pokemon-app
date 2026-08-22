@@ -20,6 +20,10 @@ vi.mock('@/pages/Collection', () => ({
   default: () => <main>Collection Screen</main>,
 }));
 
+vi.mock('@/pages/TeamPage', () => ({
+  default: () => <main>Team Screen</main>,
+}));
+
 vi.mock('@/pages/Leaderboards', () => ({
   default: () => <main>Rankings Screen</main>,
 }));
@@ -33,7 +37,7 @@ describe('App mobile navigation', () => {
       ['Home', 'Home Screen'],
       ['Map', 'Map Screen'],
       ['Collection', 'Collection Screen'],
-      ['Team', 'Collection Screen'],
+      ['Team', 'Team Screen'],
       ['Rankings', 'Rankings Screen'],
     ];
 

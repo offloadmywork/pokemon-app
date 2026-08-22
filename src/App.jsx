@@ -2,8 +2,10 @@ import { useState } from "react";
 import Home from "@/pages/Home";
 import Browse from "@/pages/Browse";
 import Collection from "@/pages/Collection";
+import TeamPage from "@/pages/TeamPage";
 import Leaderboards from "@/pages/Leaderboards";
 import { featureFlags } from "@/config/featureFlags";
+import { pokemonAPI } from "@/api/client";
 import { Home as HomeIcon, Map, Shield, Star, Trophy, Volume2, VolumeX } from "lucide-react";
 import { isMuted, toggleMuted, playSfx } from "@/game/audio";
 
@@ -11,7 +13,7 @@ const primaryTabs = [
   { key: 'home', label: 'Home', icon: HomeIcon },
   { key: 'browse', label: 'Map', icon: Map },
   { key: 'collection', label: 'Collection', icon: Star },
-  { key: 'team', label: 'Team', icon: Shield, page: 'collection' },
+  { key: 'team', label: 'Team', icon: Shield, page: 'team' },
   { key: 'leaderboards', label: 'Rankings', icon: Trophy, feature: 'leaderboards' },
 ];
 
@@ -50,6 +52,7 @@ export default function App() {
         {currentPage === 'home' && <Home onNavigate={navigate} />}
         {currentPage === 'browse' && <Browse onNavigate={navigate} />}
         {currentPage === 'collection' && <Collection onNavigate={navigate} />}
+        {currentPage === 'team' && <TeamPage onNavigate={navigate} apiClient={pokemonAPI} />}
         {currentPage === 'leaderboards' && featureFlags.leaderboards && (
           <Leaderboards onNavigate={navigate} />
         )}
