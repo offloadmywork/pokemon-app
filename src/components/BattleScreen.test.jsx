@@ -2,7 +2,7 @@
 // BATTLE SCREEN COMPONENT TESTS
 // ═══════════════════════════════════════════
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import BattleScreen from './BattleScreen';
 
 // Mock the battle module
@@ -81,11 +81,10 @@ describe('BattleScreen Component', () => {
       });
     });
 
-    it('should show wild pokemon type emoji', async () => {
+    it('should show wild pokemon type label', async () => {
       render(<BattleScreen {...defaultProps} />);
       await waitFor(() => {
-        // Fire type should show 🔥 somewhere in the document
-        expect(document.body.textContent).toContain('🔥');
+        expect(document.body.textContent).toContain('FIR');
       });
     });
 
@@ -94,6 +93,75 @@ describe('BattleScreen Component', () => {
       await waitFor(() => {
         expect(screen.getByText(/A wild WildMon appeared/)).toBeInTheDocument();
       });
+    });
+
+    it('should apply seasonal XP bonus when catching a boosted Pokémon', async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.1);
+      const onEnd = vi.fn();
+
+      render(
+        <BattleScreen
+          {...defaultProps}
+          wildPokemon={{ ...mockWildPokemon, type: 'Water', rarity: 'Common' }}
+          onEnd={onEnd}
+          seasonalEvent={{
+            key: 'summer-splash',
+            name: 'Summer Splash',
+            boostedTypes: ['Water', 'Ice'],
+            catchRateMultiplier: 1.15,
+            xpMultiplier: 1.1,
+          }}
+        />
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      fireEvent.click(screen.getByText('🔴 Catch!'));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6700);
+      });
+
+      expect(onEnd).toHaveBeenCalledWith(expect.objectContaining({
+        caught: true,
+        battleWon: true,
+        xpGained: 11,
+      }));
+
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it('should reflect an equipped Premier Ball skin in capture presentation', async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+      render(
+        <BattleScreen
+          {...defaultProps}
+          equippedBallSkinCosmeticId="premier_ball_skin"
+        />
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      expect(screen.getByText('⚪ Catch!')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('⚪ Catch!'));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      expect(screen.getByText('Go, Premier Ball!')).toBeInTheDocument();
+
+      randomSpy.mockRestore();
+      vi.useRealTimers();
     });
   });
 });

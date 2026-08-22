@@ -8,6 +8,7 @@ import {
   getUsageError,
 } from '@/game/items';
 import { getMaxHP } from '@/game/battle';
+import { incrementDailyQuestsForEvent } from '@/game/dailyQuestProgress';
 
 export class BattleViewModel {
   constructor(apiClient, team, wildPokemon) {
@@ -169,6 +170,9 @@ export class BattleViewModel {
       // Decrement via API
       await this.api.useItem(itemId);
       this.items[itemId] = Math.max(0, (this.items[itemId] || 0) - 1);
+
+      // Best-effort: count towards daily quests
+      incrementDailyQuestsForEvent(this.api, 'useItem', 1);
 
       const healAmount = updatedPokemon.currentHP - previousHP;
 

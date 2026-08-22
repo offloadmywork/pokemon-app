@@ -9,6 +9,8 @@ const createMockApi = () => ({
   ]),
   useItem: vi.fn().mockResolvedValue({ success: true }),
   addItem: vi.fn().mockResolvedValue({ success: true }),
+  getDailyQuests: vi.fn().mockResolvedValue([]),
+  updateDailyQuestProgress: vi.fn().mockResolvedValue({ success: true }),
 });
 
 // Mock Pokemon
@@ -154,6 +156,24 @@ describe('BattleViewModel', () => {
       expect(viewModel.getItemQuantity('potion')).toBe(5);
       await viewModel.useItemOnActive('potion');
       expect(viewModel.getItemQuantity('potion')).toBe(4);
+    });
+
+    it('should increment daily quest progress for use-item quests (best-effort)', async () => {
+      mockApi.getDailyQuests.mockResolvedValueOnce([
+        { id: 'q1', template_key: 'use-item' },
+        { id: 'q2', template_key: 'battle-1' },
+      ]);
+
+      const damagedPokemon = createMockPokemon({ currentHP: 50, maxHP: 170 });
+      viewModel = createBattleViewModel(mockApi, [damagedPokemon], wildPokemon);
+      await viewModel.loadInventory();
+
+      await viewModel.useItemOnActive('potion');
+
+      // Called async best-effort; allow microtask queue to flush
+      await Promise.resolve();
+
+      expect(mockApi.updateDailyQuestProgress).toHaveBeenCalledWith('q1', 1);
     });
 
     it('should update team state after using item', async () => {

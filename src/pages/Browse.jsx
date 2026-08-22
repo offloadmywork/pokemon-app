@@ -6,7 +6,14 @@ import BattleScreen from "@/components/BattleScreen";
 import { getMap, isWalkable, isGrass, isHealingSpot } from "@/game/maps";
 import { loadTeam, saveTeam, healTeam, isTeamAlive } from "@/game/team";
 import { loadProgress, saveProgress } from "@/game/progress";
+import { incrementDailyQuestsForEvent } from "@/game/dailyQuestProgress";
+import { getBossClearKey, loadBossClears, recordBossClear } from "@/game/bossProgress";
+import { getActiveSeasonalEvent, selectSeasonalEncounterType } from "@/game/seasonalEvents";
+import { getItemById } from "@/game/items";
+import { applyLureDurationBonus, getLureByItemId, selectLureEncounterType } from "@/game/lures";
+import { getCosmetic } from "@/game/cosmetics";
 import playerSprite from "@/assets/player-spritesheet.svg";
+import { Cloud, Flame, Gem, Heart, Home, Map, Mountain, PartyPopper, Sparkles, Star, TreePine, Trophy, Frown } from "lucide-react";
 import grassTile from "@/assets/tiles/grass.svg";
 import treeTile from "@/assets/tiles/tree.svg";
 import waterTile from "@/assets/tiles/water.svg";
@@ -33,6 +40,7 @@ const VIEW_ROWS = 7;
 const VIEWPORT_W = VIEW_COLS * TILE;  // 432
 const VIEWPORT_H = VIEW_ROWS * TILE;  // 336
 const MOVE_COOLDOWN = 200; // ms
+const ACTIVE_LURE_KEY = 'pokemon-active-lure';
 
 // Direction offsets
 const DIR_DELTA = {
@@ -72,6 +80,7 @@ const POI_MARKERS = {
   tower: { shape: 'square', color: '#f59e0b', label: 'Tower' },
   quest: { shape: 'triangle', color: '#ef4444', label: 'Quest' },
   rare: { shape: 'diamond', color: '#22c55e', label: 'Rare' },
+  boss: { shape: 'circle', color: '#f43f5e', label: 'Boss' },
 };
 
 const getPoiMarkerStyle = (type, size = 6) => {
@@ -91,6 +100,10 @@ const getPoiMarkerStyle = (type, size = 6) => {
   }
   if (marker.shape === 'diamond') {
     style.transform = 'rotate(45deg)';
+  }
+  if (marker.shape === 'circle') {
+    style.borderRadius = 999;
+    style.border = '1px solid rgba(255,255,255,0.85)';
   }
   return style;
 };
@@ -123,10 +136,50 @@ const POIS_BY_LEVEL = {
   ],
 };
 
+const LEVEL_ICONS = {
+  1: TreePine,
+  2: Gem,
+  3: Mountain,
+  4: Flame,
+  5: Cloud,
+};
+
+function loadActiveLure() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACTIVE_LURE_KEY) || 'null');
+    if (!saved?.itemId || saved.remainingEncounters <= 0) return null;
+
+    const item = getItemById(saved.itemId);
+    const lure = getLureByItemId(saved.itemId);
+    if (!item || !lure) return null;
+
+    return {
+      ...lure,
+      name: item.name,
+      remainingEncounters: Math.min(saved.remainingEncounters, lure.durationEncounters),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveLure(lure) {
+  if (!lure || lure.remainingEncounters <= 0) {
+    localStorage.removeItem(ACTIVE_LURE_KEY);
+    return;
+  }
+
+  localStorage.setItem(ACTIVE_LURE_KEY, JSON.stringify({
+    itemId: lure.itemId,
+    name: lure.name,
+    remainingEncounters: lure.remainingEncounters,
+  }));
+}
+
 // ═══════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════
-export default function Browse({ onNavigate }) {
+export default function Browse({ onNavigate, today = new Date().toISOString().slice(0, 10) }) {
   // Progress state
   const [xp, setXp] = useState(() => loadProgress().xp);
   const [level, setLevel] = useState(() => loadProgress().level);
@@ -134,6 +187,7 @@ export default function Browse({ onNavigate }) {
 
   // Map & player
   const mapConfig = useMemo(() => getMap(level), [level]);
+  const activeSeasonalEvent = useMemo(() => getActiveSeasonalEvent(today), [today]);
   const [facing, setFacing] = useState('down');
   const [isMoving, setIsMoving] = useState(false);
   const lastMoveRef = useRef(0);
@@ -152,6 +206,12 @@ export default function Browse({ onNavigate }) {
   // Healing flash
   const [showHeal, setShowHeal] = useState(false);
   const [healMessage, setHealMessage] = useState('');
+  const [bossClearMessage, setBossClearMessage] = useState('');
+  const [bossClears, setBossClears] = useState(() => loadBossClears());
+  const [lureInventory, setLureInventory] = useState([]);
+  const [activeLure, setActiveLure] = useState(() => loadActiveLure());
+  const [lureMessage, setLureMessage] = useState('');
+  const [equippedBallSkinCosmeticId, setEquippedBallSkinCosmeticId] = useState(null);
 
   // Persist progress
   useEffect(() => {
@@ -166,6 +226,42 @@ export default function Browse({ onNavigate }) {
         setCaughtIds(new Set(caughtList.map((c) => c.pokemon_id)));
         const today = new Date().toISOString().slice(0, 10);
         setCaughtToday(caughtList.filter(c => c.caught_date && c.caught_date.slice(0, 10) === today).length);
+
+        const apiClears = await pokemonAPI.getBossClears?.();
+        if (Array.isArray(apiClears)) {
+          const clearsByKey = Object.fromEntries(apiClears.map((clear) => [
+            clear.boss_key || getBossClearKey(clear),
+            {
+              name: clear.name,
+              reward_xp: clear.reward_xp || 0,
+              cleared_at: clear.cleared_at,
+            },
+          ]));
+          setBossClears(prev => ({ ...prev, ...clearsByKey }));
+        }
+
+        const items = await pokemonAPI.getItems?.();
+        const upgradeResult = await pokemonAPI.getUpgrades?.();
+        const lureUpgradeLevel = Math.max(0, Number(upgradeResult?.upgrades?.encounter_lure_slot) || 0);
+
+        if (Array.isArray(items)) {
+          setLureInventory(items
+            .map((row) => {
+              const item = getItemById(row.item_id);
+              const lure = getLureByItemId(row.item_id);
+              return item && lure && row.quantity > 0
+                ? { item, lure: applyLureDurationBonus(lure, lureUpgradeLevel), quantity: row.quantity }
+                : null;
+            })
+            .filter(Boolean));
+        }
+
+        const cosmeticsResult = await pokemonAPI.getCosmetics?.();
+        const equippedBallSkin = (cosmeticsResult?.cosmetics || []).find((cosmetic) => {
+          const catalogItem = getCosmetic(cosmetic.cosmetic_id);
+          return cosmetic.equipped && catalogItem?.slot === 'ball_skin';
+        });
+        setEquippedBallSkinCosmeticId(equippedBallSkin?.cosmetic_id || null);
       } catch (err) {
         console.error("Failed to fetch caught Pokemon:", err);
       }
@@ -173,13 +269,40 @@ export default function Browse({ onNavigate }) {
     })();
   }, []);
 
+  const activateLure = useCallback(async (lureEntry) => {
+    try {
+      await pokemonAPI.useItem(lureEntry.item.id);
+      const nextLure = {
+        ...lureEntry.lure,
+        name: lureEntry.item.name,
+        remainingEncounters: lureEntry.lure.durationEncounters,
+      };
+      saveActiveLure(nextLure);
+      setActiveLure(nextLure);
+      setLureInventory((current) => current
+        .map((entry) => (
+          entry.item.id === lureEntry.item.id
+            ? { ...entry, quantity: Math.max(0, entry.quantity - 1) }
+            : entry
+        ))
+        .filter((entry) => entry.quantity > 0));
+      setLureMessage(`${lureEntry.item.name} active`);
+    } catch (err) {
+      console.error("Failed to use lure:", err);
+      setLureMessage(`Could not use ${lureEntry.item.name}`);
+    }
+  }, []);
+
   // ═══════════════════════════════════════════
   // POKEMON FETCHING
   // ═══════════════════════════════════════════
   const fetchRandomPokemon = useCallback(async () => {
     const selectedRarity = rollRarity(level);
+    const lureType = selectLureEncounterType(activeLure);
+    const seasonalType = selectSeasonalEncounterType(activeSeasonalEvent);
+    const encounterType = lureType || seasonalType;
     try {
-      const pokemon = await pokemonAPI.getRandomPokemon(selectedRarity);
+      const pokemon = await pokemonAPI.getRandomPokemon(selectedRarity, encounterType);
       return pokemon;
     } catch (err) {
       console.error("Failed to fetch random Pokemon:", err);
@@ -192,6 +315,28 @@ export default function Browse({ onNavigate }) {
         return null;
       }
     }
+  }, [level, activeSeasonalEvent, activeLure]);
+
+  const startBossEncounter = useCallback((boss) => {
+    const team = loadTeam();
+    if (!team.length || !isTeamAlive(team)) {
+      setEncounterPhase('no-team');
+      return;
+    }
+
+    setPokemon({
+      id: `boss-${boss.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name: boss.name,
+      type: boss.pokemonType || 'Dragon',
+      description: boss.description || `${boss.name} guards this zone's final path.`,
+      image_url: boss.image_url,
+      rarity: boss.rarity || 'Epic',
+      power_level: boss.power_level || Math.min(100, level * 18 + 52),
+      rewardXP: boss.rewardXP || 100,
+      isBoss: true,
+    });
+    setBattleTeam(team);
+    setEncounterPhase('battle');
   }, [level]);
 
   // Player position (combined x,y)
@@ -239,9 +384,9 @@ export default function Browse({ onNavigate }) {
           if (team.length > 0) {
             const healed = healTeam(team);
             saveTeam(healed);
-            setHealMessage('💖 Team healed!');
+            setHealMessage('Team healed!');
           } else {
-            setHealMessage('💖 Healing spot!');
+            setHealMessage('Healing spot!');
           }
           setShowHeal(true);
           setTimeout(() => { setShowHeal(false); setHealMessage(''); }, 1500);
@@ -253,7 +398,7 @@ export default function Browse({ onNavigate }) {
 
       return { x: newX, y: newY };
     });
-  }, [encounterPhase, mapConfig]);
+  }, [encounterPhase, mapConfig, activeLure]);
 
   // ═══════════════════════════════════════════
   // KEYBOARD CONTROLS
@@ -300,6 +445,15 @@ export default function Browse({ onNavigate }) {
       return;
     }
 
+    setActiveLure((current) => {
+      if (!current) return current;
+      const remainingEncounters = current.remainingEncounters - 1;
+      const nextLure = remainingEncounters > 0
+        ? { ...current, remainingEncounters }
+        : null;
+      saveActiveLure(nextLure);
+      return nextLure;
+    });
     setPokemon(found);
     setBattleTeam(team);
     setEncounterPhase('battle');
@@ -330,9 +484,33 @@ export default function Browse({ onNavigate }) {
       }
     }
 
+    // Daily quest progress: battle win
+    if (result.battleWon) {
+      incrementDailyQuestsForEvent(pokemonAPI, 'battleWin', 1);
+    }
+
+    let xpGained = result.xpGained || 0;
+
+    if (result.battleWon && result.pokemon?.isBoss) {
+      const clear = recordBossClear(result.pokemon);
+      const bossKey = getBossClearKey(result.pokemon);
+      setBossClears(prev => ({ ...prev, [bossKey]: clear }));
+      pokemonAPI.recordBossClear?.({
+        boss_key: bossKey,
+        name: clear.name,
+        reward_xp: clear.reward_xp,
+        cleared_at: clear.cleared_at,
+      }).catch((err) => {
+        console.error("Failed to sync boss clear:", err);
+      });
+      xpGained += clear.reward_xp;
+      setBossClearMessage(`${clear.name} defeated! Zone cleared +${clear.reward_xp} XP`);
+      setTimeout(() => setBossClearMessage(''), 3500);
+    }
+
     // Award XP
-    if (result.xpGained > 0) {
-      const newXp = xp + result.xpGained;
+    if (xpGained > 0) {
+      const newXp = xp + xpGained;
       setXp(newXp);
       const newLevel = getLevelFromXP(newXp);
       if (newLevel > level) {
@@ -370,6 +548,7 @@ export default function Browse({ onNavigate }) {
   // COMPUTED VALUES
   // ═══════════════════════════════════════════
   const currentEnv = getLevelConfig(level);
+  const LevelIcon = LEVEL_ICONS[currentEnv.level] || Map;
   const nextLevelXP = getNextLevelXP(level);
   const currentLevelXP = currentEnv.xpRequired;
   const xpInLevel = xp - currentLevelXP;
@@ -384,7 +563,7 @@ export default function Browse({ onNavigate }) {
   const mapCols = map[0].length;
   const minimapW = mapCols * MINIMAP_TILE;
   const minimapH = mapRows * MINIMAP_TILE;
-  const pois = POIS_BY_LEVEL[level] || [];
+  const pois = [...(POIS_BY_LEVEL[level] || []), ...(mapConfig.pois || [])];
 
   // Camera: center on player, clamped to edges (target)
   const targetCameraX = Math.max(0, Math.min(playerPos.x * TILE - (VIEWPORT_W / 2) + (TILE / 2), mapCols * TILE - VIEWPORT_W));
@@ -453,8 +632,8 @@ export default function Browse({ onNavigate }) {
       <div className="min-h-screen flex items-center justify-center" style={{ background: currentEnv.gradient }}>
         <style>{animationStyles}</style>
         <div className="text-center">
-          <div className="text-7xl" style={{ animation: "float 2s ease-in-out infinite" }}>
-            {currentEnv.emoji}
+          <div className="flex items-center justify-center" style={{ animation: "float 2s ease-in-out infinite" }}>
+            <LevelIcon className="w-16 h-16 text-white/90" />
           </div>
           <p className="text-2xl font-bold mt-4" style={{ color: currentEnv.textColor }}>
             Entering {currentEnv.shortName}...
@@ -479,13 +658,13 @@ export default function Browse({ onNavigate }) {
               onClick={() => onNavigate("home")}
               className="h-9 px-3 text-sm font-bold bg-white/20 hover:bg-white/30 text-white rounded-xl backdrop-blur-sm border border-white/20"
             >
-              🏠
+              <Home className="w-4 h-4" />
             </Button>
             <Button
               onClick={() => onNavigate("collection")}
               className="h-9 px-3 text-sm font-bold bg-emerald-500/40 hover:bg-emerald-500/50 text-white rounded-xl backdrop-blur-sm border border-emerald-400/30"
             >
-              ⭐
+              <Star className="w-4 h-4" />
             </Button>
           </div>
 
@@ -506,9 +685,9 @@ export default function Browse({ onNavigate }) {
           </div>
 
           <div
-            className="bg-yellow-500/30 backdrop-blur-sm border border-yellow-400/40 rounded-xl px-2 py-1 text-yellow-200 font-bold text-sm"
+            className="bg-yellow-500/30 backdrop-blur-sm border border-yellow-400/40 rounded-xl px-2 py-1 text-yellow-200 font-bold text-sm flex items-center gap-1"
           >
-            🏆 {caughtToday}
+            <Trophy className="w-4 h-4" /> {caughtToday}
           </div>
         </div>
 
@@ -531,9 +710,50 @@ export default function Browse({ onNavigate }) {
               </span>
             </>
           ) : (
-            <span className="text-xs font-bold text-yellow-300">✨ MAX LEVEL ✨</span>
+            <span className="text-xs font-bold text-yellow-300 flex items-center gap-1"><Star className="w-3 h-3" /> Max Level</span>
           )}
         </div>
+
+        {activeSeasonalEvent && (
+          <div className="mt-2 flex items-center justify-center">
+            <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-950/45 px-3 py-1 text-xs font-black text-cyan-100 shadow-lg backdrop-blur-sm">
+              <PartyPopper className="w-4 h-4 shrink-0 text-cyan-200" />
+              <span className="truncate">{activeSeasonalEvent.name}</span>
+              <span className="hidden h-1 w-1 rounded-full bg-cyan-200/70 sm:block" />
+              <span className="truncate text-cyan-100/85">
+                {activeSeasonalEvent.boostedTypes.join(' / ')} boosted
+              </span>
+            </div>
+          </div>
+        )}
+
+        {(activeLure || lureInventory.length > 0 || lureMessage) && (
+          <div className="mt-2 flex items-center justify-center">
+            <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl border border-lime-200/35 bg-lime-950/45 px-3 py-1.5 text-xs font-black text-lime-100 shadow-lg backdrop-blur-sm">
+              <Sparkles className="w-4 h-4 shrink-0 text-lime-200" />
+              {activeLure ? (
+                <>
+                  <span>{activeLure.name} active</span>
+                  <span className="text-lime-100/80">{activeLure.remainingEncounters} encounters boosted</span>
+                </>
+              ) : (
+                lureInventory.map((entry) => (
+                  <button
+                    key={entry.item.id}
+                    type="button"
+                    onClick={() => activateLure(entry)}
+                    className="rounded-lg border border-lime-200/30 bg-lime-500/20 px-2 py-1 text-lime-50 transition hover:bg-lime-400/30"
+                  >
+                    Use {entry.item.name}
+                  </button>
+                ))
+              )}
+              {lureMessage && !activeLure && (
+                <span className="text-lime-100/80">{lureMessage}</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ GAME VIEWPORT ═══ */}
@@ -656,19 +876,38 @@ export default function Browse({ onNavigate }) {
               )}
 
               {/* POI markers */}
-              {pois.map((poi, i) => (
-                <div
-                  key={`poi-${i}`}
-                  style={{
-                    position: 'absolute',
-                    left: poi.x * MINIMAP_TILE,
-                    top: poi.y * MINIMAP_TILE,
-                    transform: 'translate(-1px, -2px)',
-                    ...getPoiMarkerStyle(poi.type, 7),
-                  }}
-                  title={poi.type}
-                />
-              ))}
+              {pois.map((poi, i) => {
+                const bossKey = poi.type === 'boss' ? getBossClearKey(poi) : null;
+                const isBossCleared = bossKey && bossClears[bossKey];
+                return (
+                  <button
+                    key={`poi-${i}`}
+                    type="button"
+                    aria-label={poi.type === 'boss'
+                      ? `${isBossCleared ? 'Cleared Boss' : 'Boss'}: ${poi.name}`
+                      : POI_MARKERS[poi.type]?.label || poi.type}
+                    onClick={() => {
+                      if (poi.type === 'boss') startBossEncounter(poi);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: poi.x * MINIMAP_TILE,
+                      top: poi.y * MINIMAP_TILE,
+                      transform: 'translate(-1px, -2px)',
+                      padding: 0,
+                      border: 0,
+                      cursor: poi.type === 'boss' ? 'pointer' : 'default',
+                      opacity: isBossCleared ? 0.95 : 1,
+                      ...getPoiMarkerStyle(poi.type, 7),
+                      ...(isBossCleared ? {
+                        background: '#22c55e',
+                        boxShadow: '0 0 8px rgba(34,197,94,0.95)',
+                      } : {}),
+                    }}
+                    title={isBossCleared ? `${poi.name} cleared` : (poi.name || poi.type)}
+                  />
+                );
+              })}
 
               {/* Player dot */}
               <div
@@ -713,7 +952,7 @@ export default function Browse({ onNavigate }) {
                 gap: '8px',
               }}
             >
-              <span style={{ fontSize: '48px' }}>💖</span>
+              <Heart className="w-12 h-12 text-pink-300" />
               {healMessage && (
                 <span style={{ fontSize: '16px', fontWeight: 900, color: '#ec4899', textShadow: '0 1px 4px #000' }}>
                   {healMessage}
@@ -738,6 +977,12 @@ export default function Browse({ onNavigate }) {
         </div>
       </div>
 
+      {bossClearMessage && (
+        <div className="fixed left-1/2 top-20 z-[70] -translate-x-1/2 rounded border border-rose-300/70 bg-rose-950/90 px-4 py-3 text-center text-sm font-black text-rose-100 shadow-2xl backdrop-blur">
+          {bossClearMessage}
+        </div>
+      )}
+
       {/* ═══ D-PAD ═══ */}
       {!encounterPhase && <DPad onMove={movePlayer} />}
 
@@ -748,6 +993,8 @@ export default function Browse({ onNavigate }) {
           team={battleTeam}
           onEnd={handleBattleEnd}
           levelConfig={currentEnv}
+          seasonalEvent={activeSeasonalEvent}
+          equippedBallSkinCosmeticId={equippedBallSkinCosmeticId}
         />
       )}
 
@@ -759,19 +1006,21 @@ export default function Browse({ onNavigate }) {
         >
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           <div className="relative z-10 text-center px-8 max-w-md">
-            <div className="text-7xl mb-4">😰</div>
+            <div className="flex items-center justify-center mb-4">
+              <Frown className="w-16 h-16 text-white/80" />
+            </div>
             <h2 className="text-3xl font-black text-white mb-3">
               No Pokémon on your team!
             </h2>
             <p className="text-lg text-gray-300 mb-6">
-              Go to your Collection and add Pokémon to your battle team (up to 3) using the "⚔️ Add to Team!" button.
+              Go to your Collection and add Pokémon to your battle team (up to 3) using the "Add to Team" button.
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => { dismissEncounter(); onNavigate("collection"); }}
                 className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white font-black text-xl px-8 py-4 rounded-2xl border-2 border-emerald-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95"
               >
-                ⭐ Go to Collection
+                <span className="inline-flex items-center gap-2"><Star className="w-5 h-5" /> Go to Collection</span>
               </button>
               <button
                 onClick={dismissEncounter}

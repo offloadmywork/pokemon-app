@@ -8,21 +8,30 @@ const LEADERBOARD_TABS = [
     label: 'Level',
     emoji: '🏆',
     description: 'Highest levels and XP',
-    formatDetail: (detail) => `Level ${detail.level} • ${detail.xp} XP`,
+    formatDetail: (entry) =>
+      `Level ${entry.detail?.level ?? entry.score ?? 0} • ${entry.detail?.xp ?? 0} XP`,
   },
   {
     key: 'caught',
     label: 'Catches',
     emoji: '🎯',
     description: 'Most Pokémon caught',
-    formatDetail: (detail) => `${detail.caught} caught`,
+    formatDetail: (entry) => `${entry.detail?.caught ?? entry.score ?? 0} caught`,
   },
   {
     key: 'tower',
     label: 'Tower',
     emoji: '🗼',
     description: 'Best Challenge Tower floors',
-    formatDetail: (detail) => `Floor ${detail.best_floor}`,
+    formatDetail: (entry) => `Floor ${entry.detail?.best_floor ?? entry.score ?? 0}`,
+  },
+  {
+    key: 'pvp',
+    label: 'PvP',
+    emoji: '⚔️',
+    description: 'Most PvP battle wins',
+    formatDetail: (entry) =>
+      `${entry.detail?.wins ?? entry.score ?? 0}W / ${entry.detail?.losses ?? 0}L / ${entry.detail?.draws ?? 0}D`,
   },
 ];
 
@@ -59,6 +68,11 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
           (b.detail?.best_floor ?? b.score ?? 0) - (a.detail?.best_floor ?? a.score ?? 0)
       );
     }
+    if (activeKey === 'pvp') {
+      return list.sort(
+        (a, b) => (b.detail?.wins ?? b.score ?? 0) - (a.detail?.wins ?? a.score ?? 0)
+      );
+    }
     return list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }, [entries, activeKey]);
 
@@ -66,6 +80,7 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
     if (activeKey === 'level') return entry.detail?.level ?? entry.score;
     if (activeKey === 'caught') return entry.detail?.caught ?? entry.score;
     if (activeKey === 'tower') return entry.detail?.best_floor ?? entry.score;
+    if (activeKey === 'pvp') return entry.detail?.wins ?? entry.score;
     return entry.score;
   };
 
@@ -121,6 +136,8 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
             {LEADERBOARD_TABS.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
+                aria-pressed={activeKey === tab.key}
                 onClick={() => setActiveKey(tab.key)}
                 className={`px-4 py-2 rounded-full font-bold transition-all border-2 ${
                   activeKey === tab.key
@@ -171,7 +188,7 @@ export default function Leaderboards({ onNavigate, apiClient = pokemonAPI }) {
                         {getTrainerName(entry.user_id)}
                       </div>
                       <div className="text-white/70 text-sm">
-                        {activeTab?.formatDetail?.(entry.detail || {})}
+                        {activeTab?.formatDetail?.(entry)}
                       </div>
                     </div>
                   </div>

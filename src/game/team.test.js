@@ -8,6 +8,8 @@ import {
   addToTeam,
   removeFromTeam,
   isOnTeam,
+  moveTeamMember,
+  getTeamSynergySummary,
   MAX_TEAM_SIZE,
 } from './team';
 
@@ -247,6 +249,62 @@ describe('Team Management', () => {
 
     it('should return false if Pokemon is not on team', () => {
       expect(isOnTeam('nonexistent')).toBe(false);
+    });
+  });
+
+  describe('Team Synergy Summary', () => {
+    it('summarizes balanced type coverage for mixed teams', () => {
+      const team = [
+        { pokemon_id: 'fire-1', name: 'Flametail', type: 'Fire' },
+        { pokemon_id: 'water-1', name: 'Ripplefin', type: 'Water' },
+        { pokemon_id: 'grass-1', name: 'Leaflet', type: 'Grass' },
+      ];
+
+      expect(getTeamSynergySummary(team)).toEqual({
+        typeCount: 3,
+        types: ['Fire', 'Water', 'Grass'],
+        tone: 'balanced',
+        message: 'Balanced coverage: Fire, Water, Grass',
+      });
+    });
+
+    it('encourages broader coverage when teams repeat a type', () => {
+      const team = [
+        { pokemon_id: 'fire-1', name: 'Flametail', type: 'Fire' },
+        { pokemon_id: 'fire-2', name: 'Embercub', type: 'Fire' },
+      ];
+
+      expect(getTeamSynergySummary(team)).toEqual({
+        typeCount: 1,
+        types: ['Fire'],
+        tone: 'narrow',
+        message: 'Add different Pokemon types to improve coverage.',
+      });
+    });
+  });
+
+  describe('Move Team Member', () => {
+    it('moves a team member between battle slots without mutating the original team', () => {
+      const team = [
+        { pokemon_id: 'fire-1', name: 'Flametail', type: 'Fire' },
+        { pokemon_id: 'water-1', name: 'Ripplefin', type: 'Water' },
+        { pokemon_id: 'grass-1', name: 'Leaflet', type: 'Grass' },
+      ];
+
+      const moved = moveTeamMember(team, 2, 0);
+
+      expect(moved.map(p => p.pokemon_id)).toEqual(['grass-1', 'fire-1', 'water-1']);
+      expect(team.map(p => p.pokemon_id)).toEqual(['fire-1', 'water-1', 'grass-1']);
+    });
+
+    it('keeps the order unchanged when move indexes are outside team slots', () => {
+      const team = [
+        { pokemon_id: 'fire-1', name: 'Flametail', type: 'Fire' },
+        { pokemon_id: 'water-1', name: 'Ripplefin', type: 'Water' },
+      ];
+
+      expect(moveTeamMember(team, -1, 1)).toEqual(team);
+      expect(moveTeamMember(team, 0, 3)).toEqual(team);
     });
   });
 });

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Gamepad2 } from "lucide-react";
 
 // Big, kid-friendly directional pad
 export default function DPad({ onMove }) {
@@ -47,7 +48,7 @@ export default function DPad({ onMove }) {
         onPointerDown={(e) => { e.preventDefault(); handleMove('up'); }}
         aria-label="Move up"
       >
-        ⬆️
+        ▲
       </button>
       <div />
 
@@ -57,7 +58,7 @@ export default function DPad({ onMove }) {
         onPointerDown={(e) => { e.preventDefault(); handleMove('left'); }}
         aria-label="Move left"
       >
-        ⬅️
+        ◄
       </button>
       <div
         style={{
@@ -71,14 +72,14 @@ export default function DPad({ onMove }) {
           fontSize: '24px',
         }}
       >
-        🎮
+        <Gamepad2 className="w-7 h-7" />
       </div>
       <button
         style={btnBase}
         onPointerDown={(e) => { e.preventDefault(); handleMove('right'); }}
         aria-label="Move right"
       >
-        ➡️
+        ►
       </button>
 
       {/* Row 3: empty, DOWN, empty */}
@@ -88,7 +89,7 @@ export default function DPad({ onMove }) {
         onPointerDown={(e) => { e.preventDefault(); handleMove('down'); }}
         aria-label="Move down"
       >
-        ⬇️
+        ▼
       </button>
       <div />
     </div>

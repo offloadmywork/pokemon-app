@@ -27,6 +27,8 @@ describe('Items System', () => {
       expect(ITEM_TYPES.POKEBALL).toBeDefined();
       expect(ITEM_TYPES.GREAT_BALL).toBeDefined();
       expect(ITEM_TYPES.ULTRA_BALL).toBeDefined();
+      expect(ITEM_TYPES.BASIC_LURE).toBeDefined();
+      expect(ITEM_TYPES.WATER_LURE).toBeDefined();
     });
 
     it('Potion has correct properties', () => {
@@ -37,7 +39,7 @@ describe('Items System', () => {
       expect(potion.catchMultiplier).toBe(1.0);
       expect(potion.canRevive).toBe(false);
       expect(potion.category).toBe('healing');
-      expect(potion.emoji).toBe('🧪');
+      expect(potion.emoji).toBe('POT');
     });
 
     it('Super Potion has correct properties', () => {
@@ -67,6 +69,22 @@ describe('Items System', () => {
       expect(ITEM_TYPES.GREAT_BALL.category).toBe('ball');
       expect(ITEM_TYPES.ULTRA_BALL.category).toBe('ball');
     });
+
+    it('lures describe encounter boost effects', () => {
+      expect(ITEM_TYPES.BASIC_LURE).toEqual(expect.objectContaining({
+        id: 'basic_lure',
+        category: 'lure',
+        durationEncounters: 5,
+        encounterChanceMultiplier: 1.25,
+      }));
+      expect(ITEM_TYPES.WATER_LURE).toEqual(expect.objectContaining({
+        id: 'water_lure',
+        category: 'lure',
+        durationEncounters: 5,
+        boostedTypes: ['Water'],
+        encounterTypeWeight: 0.45,
+      }));
+    });
   });
 
   // ═══════════════════════════════════════════
@@ -95,6 +113,11 @@ describe('Items System', () => {
     it('returns pokeballs', () => {
       const balls = getItemsByCategory('ball');
       expect(balls).toHaveLength(3);
+    });
+
+    it('returns lures', () => {
+      const lures = getItemsByCategory('lure');
+      expect(lures.map((item) => item.id)).toEqual(['basic_lure', 'water_lure']);
     });
 
     it('returns empty array for unknown category', () => {

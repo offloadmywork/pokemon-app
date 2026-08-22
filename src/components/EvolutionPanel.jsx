@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { pokemonAPI } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { EvolutionViewModel } from '@/viewmodels/EvolutionViewModel';
-import { typeEmojis } from '@/game/constants';
+import TypeBadge from '@/components/TypeBadge';
+import { Dna, Sparkles } from 'lucide-react';
 
 export default function EvolutionPanel({ apiClient = pokemonAPI }) {
   const [viewModel] = useState(() => new EvolutionViewModel(apiClient));
@@ -23,7 +24,7 @@ export default function EvolutionPanel({ apiClient = pokemonAPI }) {
   const handleEvolve = async (caughtId) => {
     const result = await viewModel.evolve(caughtId);
     if (result?.success) {
-      setMessage('✨ Evolution complete!');
+      setMessage('Evolution complete!');
     } else if (viewModel.error) {
       setMessage(viewModel.error);
     }
@@ -35,7 +36,7 @@ export default function EvolutionPanel({ apiClient = pokemonAPI }) {
 
   if (isLoading) {
     return (
-      <div className="bg-white/20 rounded-2xl p-4 text-white text-center">
+      <div className="gold-inset p-4 text-center">
         Loading evolutions...
       </div>
     );
@@ -43,7 +44,7 @@ export default function EvolutionPanel({ apiClient = pokemonAPI }) {
 
   if (error) {
     return (
-      <div className="bg-white/20 rounded-2xl p-4 text-white text-center">
+      <div className="gold-inset p-4 text-center">
         Failed to load evolutions.
       </div>
     );
@@ -51,42 +52,46 @@ export default function EvolutionPanel({ apiClient = pokemonAPI }) {
 
   if (options.length === 0) {
     return (
-      <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl text-left">
-        <h2 className="text-2xl font-bold mb-2">🧬 Evolution Lab</h2>
-        <p className="text-sm sm:text-base text-white/80">
-          No evolutions available yet. Keep training and checking back!
-        </p>
+      <div className="gold-panel p-6 text-left">
+        <div className="gold-panel-content">
+          <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Dna className="w-5 h-5" /> Evolution Lab</h2>
+          <p className="text-sm sm:text-base text-[#5c4320]/80">
+            No evolutions available yet. Keep training and checking back!
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/20 rounded-3xl p-6 text-white shadow-xl text-left">
-      <h2 className="text-2xl font-bold mb-4">🧬 Evolution Lab</h2>
-      {message && (
-        <div className="mb-4 rounded-xl bg-green-500/30 border border-green-400/60 px-3 py-2 text-sm font-semibold">
-          {message}
-        </div>
-      )}
-      <div className="space-y-4">
+    <div className="gold-panel p-6 text-left">
+      <div className="gold-panel-content">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Dna className="w-5 h-5" /> Evolution Lab</h2>
+        {message && (
+          <div className="mb-4 rounded-xl border-2 border-emerald-700/60 bg-emerald-200/60 px-3 py-2 text-sm font-semibold text-emerald-900">
+            {message}
+          </div>
+        )}
+        <div className="space-y-4">
         {options.map((option) => (
           <div
             key={option.caught_id}
-            className="bg-white/15 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            className="gold-inset p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
           >
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden">
+              <div className="w-16 h-16 rounded-xl border-2 border-[#7b5422] bg-[#fff3cb] flex items-center justify-center overflow-hidden">
                 {option.from.image_url ? (
                   <img src={option.from.image_url} alt={option.from.name} className="w-full h-full object-contain" />
                 ) : (
-                  <span className="text-3xl">✨</span>
+                  <Sparkles className="w-8 h-8 text-amber-500" />
                 )}
               </div>
               <div>
-                <div className="font-bold text-lg">
-                  {typeEmojis[option.from.type] || '⚪'} {option.from.name}
+                <div className="font-bold text-lg flex items-center gap-2">
+                  <TypeBadge type={option.from.type} />
+                  {option.from.name}
                 </div>
-                <div className="text-sm text-white/80">
+                <div className="text-sm text-[#5c4320]/80">
                   Evolves into {option.to.name}
                 </div>
               </div>
@@ -95,18 +100,18 @@ export default function EvolutionPanel({ apiClient = pokemonAPI }) {
               {option.can_evolve ? (
                 <Button
                   onClick={() => handleEvolve(option.caught_id)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-purple-900 font-bold"
                 >
                   Evolve
                 </Button>
               ) : (
-                <span className="text-sm text-white/80">
+                <span className="text-sm text-[#5c4320]/80">
                   Requires level {option.required_level}
                 </span>
               )}
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

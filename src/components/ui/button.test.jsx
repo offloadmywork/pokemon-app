@@ -24,14 +24,14 @@ describe('Button Component', () => {
     expect(screen.getByText('Disabled')).toBeDisabled();
   });
 
-  it('should have default variant (bg-slate-900) by default', () => {
+  it('should have default variant (gold-button) by default', () => {
     const { container } = render(<Button>Default</Button>);
-    expect(container.firstChild).toHaveClass('bg-slate-900');
+    expect(container.firstChild).toHaveClass('gold-button');
   });
 
   it('should have ghost variant when specified', () => {
     const { container } = render(<Button variant="ghost">Ghost</Button>);
-    expect(container.firstChild).toHaveClass('hover:bg-slate-100');
+    expect(container.firstChild).toHaveClass('gold-button-ghost');
   });
 
   it('should have small size when specified', () => {
@@ -41,7 +41,7 @@ describe('Button Component', () => {
 
   it('should have large size when specified', () => {
     const { container } = render(<Button size="lg">Large</Button>);
-    expect(container.firstChild).toHaveClass('text-lg');
+    expect(container.firstChild).toHaveClass('text-base');
   });
 
   it('should render with custom className', () => {

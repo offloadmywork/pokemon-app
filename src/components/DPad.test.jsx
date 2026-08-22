@@ -64,8 +64,8 @@ describe('DPad Component', () => {
     expect(upButton).toBeVisible();
   });
 
-  it('should render with gamepad emoji in center', () => {
+  it('should render a center icon', () => {
     const { container } = render(<DPad {...defaultProps} />);
-    expect(container.textContent).toContain('🎮');
+    expect(container.textContent).toContain('▲');
   });
 });

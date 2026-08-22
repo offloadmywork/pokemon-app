@@ -15,7 +15,7 @@ export const ITEM_TYPES = {
     catchMultiplier: 1.0,
     canRevive: false,
     category: 'healing',
-    emoji: '🧪',
+    emoji: 'POT',
   },
   SUPER_POTION: {
     id: 'super_potion',
@@ -25,7 +25,7 @@ export const ITEM_TYPES = {
     catchMultiplier: 1.0,
     canRevive: false,
     category: 'healing',
-    emoji: '💊',
+    emoji: 'SP',
   },
   REVIVE: {
     id: 'revive',
@@ -35,7 +35,7 @@ export const ITEM_TYPES = {
     catchMultiplier: 1.0,
     canRevive: true,
     category: 'revival',
-    emoji: '✨',
+    emoji: 'REV',
   },
 
   // Pokeballs
@@ -47,7 +47,7 @@ export const ITEM_TYPES = {
     catchMultiplier: 1.0,
     canRevive: false,
     category: 'ball',
-    emoji: '🔴',
+    emoji: 'PB',
   },
   GREAT_BALL: {
     id: 'great_ball',
@@ -57,7 +57,7 @@ export const ITEM_TYPES = {
     catchMultiplier: 1.5,
     canRevive: false,
     category: 'ball',
-    emoji: '🔵',
+    emoji: 'GB',
   },
   ULTRA_BALL: {
     id: 'ultra_ball',
@@ -67,7 +67,35 @@ export const ITEM_TYPES = {
     catchMultiplier: 2.0,
     canRevive: false,
     category: 'ball',
-    emoji: '🟡',
+    emoji: 'UB',
+  },
+
+  // Lures
+  BASIC_LURE: {
+    id: 'basic_lure',
+    name: 'Basic Lure',
+    description: 'Boosts wild encounter activity for the next 5 encounters',
+    healAmount: 0,
+    catchMultiplier: 1.0,
+    canRevive: false,
+    category: 'lure',
+    emoji: 'LURE',
+    durationEncounters: 5,
+    encounterChanceMultiplier: 1.25,
+  },
+  WATER_LURE: {
+    id: 'water_lure',
+    name: 'Water Lure',
+    description: 'Attracts Water-type Pokemon for the next 5 encounters',
+    healAmount: 0,
+    catchMultiplier: 1.0,
+    canRevive: false,
+    category: 'lure',
+    emoji: 'WTR',
+    durationEncounters: 5,
+    encounterChanceMultiplier: 1.25,
+    boostedTypes: ['Water'],
+    encounterTypeWeight: 0.45,
   },
 };
 

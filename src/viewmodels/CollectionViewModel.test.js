@@ -61,7 +61,21 @@ describe('CollectionViewModel', () => {
       expect(vm.isLoading).toBe(false);
     });
 
-    it('auto-claims starters for new users', async () => {
+    it('does not auto-claim starters while loading an empty collection', async () => {
+      mockApiClient.getCaughtPokemon.mockResolvedValue([]);
+
+      await vm.loadCollection();
+
+      expect(vm.caughtPokemon).toEqual([]);
+      expect(mockApiClient.claimStarters).not.toHaveBeenCalled();
+    });
+
+    it('claims starters through an explicit empty-collection action', async () => {
+      const starterPokemon = [
+        { id: 'c1', pokemon_id: 's1', name: 'Flametail Jr', type: 'Fire' },
+        { id: 'c2', pokemon_id: 's2', name: 'Ripplefin', type: 'Water' },
+        { id: 'c3', pokemon_id: 's3', name: 'Leaflet', type: 'Grass' },
+      ];
       mockApiClient.getCaughtPokemon.mockResolvedValue([]);
       mockApiClient.claimStarters.mockResolvedValue({
         success: true,
@@ -71,11 +85,17 @@ describe('CollectionViewModel', () => {
           { pokemon_id: 's3', name: 'Leaflet', type: 'Grass', power_level: 25 },
         ],
       });
-      mockApiClient.getCaughtPokemon.mockResolvedValueOnce([]);
+      mockApiClient.getCaughtPokemon
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(starterPokemon);
 
       await vm.loadCollection();
+      const result = await vm.claimStartersForEmptyCollection();
 
-      expect(mockApiClient.claimStarters).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(mockApiClient.claimStarters).toHaveBeenCalledTimes(1);
+      expect(vm.caughtPokemon).toEqual(starterPokemon);
+      expect(vm.team).toHaveLength(3);
     });
 
     it('handles API errors gracefully', async () => {
@@ -191,6 +211,65 @@ describe('CollectionViewModel', () => {
     it('does not go below page 1', () => {
       vm.previousPage();
       expect(vm.currentPage).toBe(1);
+    });
+  });
+
+  describe('Collection Discovery', () => {
+    beforeEach(async () => {
+      mockApiClient.getCaughtPokemon.mockResolvedValue([
+        {
+          id: 'c1',
+          pokemon_id: 'p1',
+          name: 'Pikachu',
+          nickname: 'Sparky',
+          type: 'Electric',
+          rarity: 'Rare',
+        },
+        {
+          id: 'c2',
+          pokemon_id: 'p2',
+          name: 'Bulbasaur',
+          nickname: null,
+          type: 'Grass',
+          rarity: 'Common',
+        },
+        {
+          id: 'c3',
+          pokemon_id: 'p3',
+          name: 'Squirtle',
+          nickname: null,
+          type: 'Water',
+          rarity: 'Uncommon',
+        },
+      ]);
+      await vm.loadCollection();
+    });
+
+    it('filters collection by search text, type, and rarity while resetting pagination', () => {
+      vm.goToPage(2);
+
+      vm.setSearchTerm('spark');
+      vm.setTypeFilter('Electric');
+      vm.setRarityFilter('Rare');
+
+      expect(vm.currentPage).toBe(1);
+      expect(vm.filteredPokemon).toEqual([
+        expect.objectContaining({ pokemon_id: 'p1', nickname: 'Sparky' }),
+      ]);
+      expect(vm.discoverySummary).toEqual({
+        total: 3,
+        visible: 1,
+        hasFilters: true,
+      });
+    });
+
+    it('matches nested pokemon details when a caught row has loaded details', () => {
+      vm.setSearchTerm('bulba');
+      vm.setTypeFilter('Grass');
+
+      expect(vm.filteredPokemon).toEqual([
+        expect.objectContaining({ pokemon_id: 'p2' }),
+      ]);
     });
   });
 

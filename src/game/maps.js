@@ -116,6 +116,9 @@ export const MAPS = [
     data: forestMap,
     startX: 1,
     startY: 1,
+    pois: [
+      { x: 18, y: 13, type: 'boss', name: 'Grove Guardian', pokemonType: 'Grass', rarity: 'Epic', power_level: 70, rewardXP: 120 },
+    ],
     theme: {
       // Tile colors per tile type for this level
       path: { bg: '#8B7355', emoji: '🟫' },
@@ -131,6 +134,9 @@ export const MAPS = [
     data: crystalCaveMap,
     startX: 1,
     startY: 1,
+    pois: [
+      { x: 18, y: 13, type: 'boss', name: 'Crystal Warden', pokemonType: 'Ice', rarity: 'Epic', power_level: 82, rewardXP: 180 },
+    ],
     theme: {
       path: { bg: '#2d1b69', emoji: '🟪' },
       grass: { bg: '#3b1f8e', animClass: 'grass-sway', emoji: '🪻' },
@@ -145,6 +151,9 @@ export const MAPS = [
     data: thunderMountainMap,
     startX: 1,
     startY: 1,
+    pois: [
+      { x: 18, y: 13, type: 'boss', name: 'Storm Peak Alpha', pokemonType: 'Electric', rarity: 'Legendary', power_level: 94, rewardXP: 260 },
+    ],
     theme: {
       path: { bg: '#4b5563', emoji: '🪨' },
       grass: { bg: '#374151', animClass: 'grass-sway', emoji: '⚡' },

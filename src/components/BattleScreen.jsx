@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { calculateDamage, getMaxHP, getCatchRate, getFaintedCatchRate } from "@/game/battle";
 import { getPokemonImage, typeEmojis, rarityConfig, XP_REWARDS } from "@/game/constants";
+import { getSeasonalCatchRate, getSeasonalXpReward } from "@/game/seasonalEvents";
+import { getCosmetic } from "@/game/cosmetics";
 
 // ═══════════════════════════════════════════
 // BATTLE SCREEN — Full turn-based battle UI
@@ -42,6 +44,23 @@ function getImage(pokemon) {
   return getPokemonImage(pokemon);
 }
 
+function getBallPresentation(cosmeticId) {
+  const cosmetic = getCosmetic(cosmeticId);
+  if (cosmetic?.slot === 'ball_skin' && cosmetic.cosmetic_id === 'premier_ball_skin') {
+    return {
+      icon: '⚪',
+      name: 'Premier Ball',
+      buttonClass: 'pixel-btn-premier',
+    };
+  }
+
+  return {
+    icon: '🔴',
+    name: 'Pokéball',
+    buttonClass: 'pixel-btn-catch',
+  };
+}
+
 // HP Bar component
 function HPBar({ current, max, showText = true, size = 'normal' }) {
   const ratio = max > 0 ? current / max : 0;
@@ -50,19 +69,19 @@ function HPBar({ current, max, showText = true, size = 'normal' }) {
 
   return (
     <div className="w-full">
-      <div className={`${h} bg-gray-800 rounded-full overflow-hidden border border-white/20`}>
+      <div className={`${h} pixel-hp-shell overflow-hidden`}>
         <div
           style={{
             width: `${Math.max(0, ratio * 100)}%`,
             background: color,
             transition: 'width 0.5s ease-out',
             height: '100%',
-            borderRadius: '9999px',
+            borderRadius: '2px',
           }}
         />
       </div>
       {showText && (
-        <span className="text-xs font-bold text-white/80 mt-0.5 block text-right">
+        <span className="text-[10px] font-bold pixel-hp-text mt-1 block text-right">
           HP: {Math.max(0, current)}/{max}
         </span>
       )}
@@ -100,7 +119,14 @@ function DamageNumber({ damage, isCritical, position }) {
   );
 }
 
-export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, levelConfig }) {
+export default function BattleScreen({
+  wildPokemon,
+  team: initialTeam,
+  onEnd,
+  levelConfig,
+  seasonalEvent = null,
+  equippedBallSkinCosmeticId = null,
+}) {
   const [phase, setPhase] = useState(PHASE.INTRO);
   const [team, setTeam] = useState(() =>
     initialTeam.map(p => ({ ...p, maxHP: getMaxHP(p), currentHP: p.currentHP ?? getMaxHP(p) }))
@@ -130,6 +156,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
   const [wildLunge, setWildLunge] = useState(false);
 
   const activePokemon = team[activeIndex];
+  const ballPresentation = getBallPresentation(equippedBallSkinCosmeticId);
 
   // Catch state for fainted wild pokemon
   const [faintedCatchPhase, setFaintedCatchPhase] = useState(null);
@@ -245,7 +272,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
         setEffectivenessText('not-very-effective');
       }
       if (result.isCritical) {
-        msg = (msg ? msg + ' ' : '') + 'Critical hit! ⚡';
+        msg = (msg ? msg + ' ' : '') + 'Critical hit!';
       }
       setMessage(msg);
       await wait(1200);
@@ -271,15 +298,16 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
   const handleCatch = useCallback(async (isFaintedCatch = false) => {
     if (phase !== PHASE.CHOOSE && phase !== PHASE.FAINTED_WILD_CATCH) return;
 
-    const catchRate = isFaintedCatch || wildHP <= 0
+    const baseCatchRate = isFaintedCatch || wildHP <= 0
       ? getFaintedCatchRate()
       : getCatchRate(wildPokemon, wildHP);
+    const catchRate = getSeasonalCatchRate(baseCatchRate, seasonalEvent, wildPokemon);
     const success = Math.random() < catchRate;
     const wobbles = success ? 3 : Math.floor(Math.random() * 3) + 1;
 
     // Throw animation
     setPhase(PHASE.CATCH_THROW);
-    setMessage('Go, Pokéball!');
+    setMessage(`Go, ${ballPresentation.name}!`);
     await wait(1200);
 
     // Wobble animation
@@ -297,9 +325,10 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
       setMessage(`You caught ${wildPokemon.name}!`);
       // End battle after celebration
       await wait(2500);
-      const xpGain = XP_REWARDS[wildPokemon.rarity] || 10;
+      const xpGain = getSeasonalXpReward(XP_REWARDS[wildPokemon.rarity] || 10, seasonalEvent, wildPokemon);
       onEnd({
         caught: true,
+        battleWon: true,
         xpGained: xpGain,
         teamHP: team.map(p => p.currentHP),
         pokemon: wildPokemon,
@@ -318,7 +347,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
         await enemyAttack(team, activeIndex);
       }
     }
-  }, [phase, wildHP, wildPokemon, team, activeIndex, onEnd, enemyAttack]);
+  }, [phase, wildHP, wildPokemon, team, activeIndex, onEnd, enemyAttack, seasonalEvent, ballPresentation.name]);
 
   // ═══ ACTION: RUN ═══
   const handleRun = useCallback(async () => {
@@ -374,14 +403,15 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
 
   // ═══ FAINTED WILD: Give up ═══
   const handleGiveUp = useCallback(() => {
-    const xpGain = Math.floor((XP_REWARDS[wildPokemon.rarity] || 10) / 2);
+    const xpGain = getSeasonalXpReward(Math.floor((XP_REWARDS[wildPokemon.rarity] || 10) / 2), seasonalEvent, wildPokemon);
     onEnd({
       caught: false,
+      battleWon: true,
       xpGained: xpGain,
       teamHP: team.map(p => p.currentHP),
-      pokemon: null,
+      pokemon: wildPokemon,
     });
-  }, [team, wildPokemon, onEnd]);
+  }, [team, wildPokemon, onEnd, seasonalEvent]);
 
   const rarity = rarityConfig[wildPokemon.rarity] || rarityConfig.Common;
   const wildImg = getImage(wildPokemon);
@@ -397,7 +427,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
   const showFaintedCatch = phase === PHASE.FAINTED_WILD_CATCH;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #0f3460 40%, #16213e 100%)' }}>
+    <div className="fixed inset-0 z-50 flex flex-col gold-battle">
       <style>{battleStyles}</style>
 
       {/* ═══ CONFETTI ═══ */}
@@ -432,9 +462,9 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
           }}
         >
           {/* Name + HP */}
-          <div className="bg-gray-900/80 backdrop-blur rounded-2xl p-3 border border-white/10 max-w-[260px] ml-auto mb-2">
+          <div className="pixel-panel p-3 max-w-[260px] ml-auto mb-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="font-black text-lg text-white truncate">
+              <span className="font-black text-sm md:text-base pixel-text truncate">
                 {typeEmojis[wildPokemon.type] || '⚪'} {wildPokemon.name}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: rarity.color + '30', color: rarity.color }}>
@@ -443,7 +473,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
             </div>
             <HPBar current={wildHP} max={wildMaxHP} />
             {wildHPRatio < 0.5 && wildHP > 0 && (
-              <div className="text-xs font-bold text-yellow-400 mt-1 animate-pulse">
+              <div className="text-[10px] font-bold pixel-muted mt-1 animate-pulse">
                 ⚠️ The Pokémon is weakened!
               </div>
             )}
@@ -461,7 +491,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               }}
             >
               {wildHP > 0 ? (
-                <img src={wildImg} alt={wildPokemon.name} className="w-full h-full object-contain" />
+                <img src={wildImg} alt={wildPokemon.name} className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} />
               ) : (
                 <img src={wildImg} alt={wildPokemon.name} className="w-full h-full object-contain opacity-30" style={{ filter: 'grayscale(1)' }} />
               )}
@@ -495,7 +525,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
                   opacity: activePokemon.currentHP <= 0 ? 0.3 : 1,
                 }}
               >
-                <img src={playerImg} alt={activePokemon.name} className="w-full h-full object-contain" style={{ transform: 'scaleX(-1)' }} />
+                <img src={playerImg} alt={activePokemon.name} className="w-full h-full object-contain" style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
                 {playerDamage && (
                   <DamageNumber
                     damage={playerDamage.damage}
@@ -507,9 +537,9 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
             </div>
 
             {/* Name + HP */}
-            <div className="bg-gray-900/80 backdrop-blur rounded-2xl p-3 border border-white/10 max-w-[260px]">
+            <div className="pixel-panel p-3 max-w-[260px]">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-black text-lg text-white truncate">
+                <span className="font-black text-sm md:text-base pixel-text truncate">
                   {typeEmojis[activePokemon.type] || '⚪'} {activePokemon.name}
                 </span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: (playerRarity?.color || '#999') + '30', color: playerRarity?.color || '#999' }}>
@@ -561,7 +591,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
         {phase === PHASE.CATCH_THROW && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
             <div className="text-8xl" style={{ animation: 'throw-ball 1s cubic-bezier(0.2, 0, 0.2, 1) forwards' }}>
-              🔴
+              {ballPresentation.icon}
             </div>
           </div>
         )}
@@ -569,7 +599,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
         {phase === PHASE.CATCH_WOBBLE && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
             <div className="text-8xl mb-4" style={{ animation: 'wobble 0.6s ease-in-out infinite' }}>
-              🔴
+              {ballPresentation.icon}
             </div>
             <div className="flex gap-3">
               {[1, 2, 3].map(i => (
@@ -606,18 +636,21 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               >
                 GOTCHA!
               </h2>
-              <div className="bg-gray-900/80 backdrop-blur rounded-2xl p-4 border border-green-400/30 max-w-xs mx-auto">
+              <div className="pixel-panel p-4 max-w-xs mx-auto">
                 <div className="w-20 h-20 mx-auto mb-2 flex items-center justify-center">
-                  <img src={wildImg} alt={wildPokemon.name} className="max-w-full max-h-full object-contain" />
+                  <img src={wildImg} alt={wildPokemon.name} className="max-w-full max-h-full object-contain" style={{ imageRendering: 'pixelated' }} />
                 </div>
-                <p className="text-xl font-black text-white">{wildPokemon.name}</p>
-                <p className="text-sm" style={{ color: rarity.color }}>{'⭐'.repeat(rarity.stars)} {rarity.label}</p>
-                <p className="text-green-400 font-bold text-sm mt-1">Added to your collection!</p>
+                <p className="text-base font-black pixel-text">{wildPokemon.name}</p>
+                <p className="text-[10px] pixel-muted">{'⭐'.repeat(rarity.stars)} {rarity.label}</p>
+                <p className="text-[10px] font-bold" style={{ color: "#2f6b2f" }}>Added to your collection!</p>
                 <p
-                  className="text-yellow-400 font-black text-lg mt-1"
-                  style={{ animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both' }}
+                  className="text-sm font-black"
+                  style={{
+                    color: "#7a5a1f",
+                    animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both',
+                  }}
                 >
-                  +{XP_REWARDS[wildPokemon.rarity] || 10} XP ⚡
+                  +{getSeasonalXpReward(XP_REWARDS[wildPokemon.rarity] || 10, seasonalEvent, wildPokemon)} XP
                 </p>
               </div>
             </div>
@@ -629,11 +662,11 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
           <div className="absolute inset-0 flex flex-col items-center justify-center z-40 bg-black/60">
             <div style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
               <div className="text-7xl mb-4">😵</div>
-              <h2 className="text-4xl font-black text-red-400 mb-2">All Pokémon fainted!</h2>
-              <p className="text-xl text-gray-300 mb-6">You need to heal your team...</p>
+              <h2 className="text-lg font-black" style={{ color: "#8a3f2b" }}>All Pokémon fainted!</h2>
+              <p className="text-sm pixel-muted mb-4">You need to heal your team...</p>
               <button
                 onClick={handleTeamWiped}
-                className="bg-gradient-to-br from-red-500 to-red-700 text-white font-black text-xl px-8 py-4 rounded-2xl border-2 border-red-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95"
+                className="pixel-btn pixel-btn-danger text-sm md:text-base px-6 py-3 rounded-none"
               >
                 🏃 Retreat
               </button>
@@ -644,8 +677,8 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
 
       {/* ═══ MESSAGE BAR ═══ */}
       <div className="px-4 pb-2">
-        <div className="bg-gray-900/90 backdrop-blur rounded-2xl px-4 py-3 border border-white/10">
-          <p className="text-lg md:text-xl font-black text-white text-center" style={{ minHeight: '28px' }}>
+        <div className="pixel-panel px-4 py-3">
+          <p className="text-sm md:text-base font-black pixel-text text-center" style={{ minHeight: '28px' }}>
             {message}
           </p>
         </div>
@@ -661,8 +694,8 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               onClick={handleAttack}
               className="group relative"
             >
-              <div className="absolute inset-0 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition bg-orange-500" />
-              <div className="relative bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black text-xl md:text-2xl px-4 py-5 rounded-2xl border-2 border-orange-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95">
+              <div className="hidden" />
+              <div className="relative pixel-btn pixel-btn-attack w-full text-sm md:text-base px-4 py-4 rounded-none">
                 ⚔️ Attack!
               </div>
             </button>
@@ -672,9 +705,9 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               onClick={() => handleCatch(false)}
               className="group relative"
             >
-              <div className="absolute inset-0 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition bg-red-500" />
-              <div className="relative bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-black text-xl md:text-2xl px-4 py-5 rounded-2xl border-2 border-red-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95">
-                🔴 Catch!
+              <div className="hidden" />
+              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-4 py-4 rounded-none`}>
+                {ballPresentation.icon} Catch!
               </div>
             </button>
 
@@ -685,8 +718,8 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               style={{ opacity: canSwitch ? 1 : 0.4 }}
               disabled={!canSwitch}
             >
-              <div className="absolute inset-0 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition bg-blue-500" />
-              <div className="relative bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-black text-xl md:text-2xl px-4 py-5 rounded-2xl border-2 border-blue-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95">
+              <div className="hidden" />
+              <div className="relative pixel-btn pixel-btn-switch w-full text-sm md:text-base px-4 py-4 rounded-none">
                 🔄 Switch
               </div>
             </button>
@@ -696,8 +729,8 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               onClick={handleRun}
               className="group relative"
             >
-              <div className="absolute inset-0 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition bg-gray-500" />
-              <div className="relative bg-gradient-to-br from-gray-500 to-gray-700 hover:from-gray-400 hover:to-gray-600 text-white font-black text-xl md:text-2xl px-4 py-5 rounded-2xl border-2 border-gray-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95">
+              <div className="hidden" />
+              <div className="relative pixel-btn pixel-btn-run w-full text-sm md:text-base px-4 py-4 rounded-none">
                 🏃 Run!
               </div>
             </button>
@@ -707,7 +740,7 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
         {/* Switch panel */}
         {phase === PHASE.SWITCH && (
           <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            <p className="text-center text-white font-bold mb-3 text-lg">Choose your Pokémon:</p>
+            <p className="text-center pixel-text font-bold mb-3 text-sm">Choose your Pokémon:</p>
             <div className="grid gap-2">
               {team.map((p, i) => {
                 const isActive = i === activeIndex;
@@ -717,30 +750,30 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
                     key={i}
                     onClick={() => isAlive && !isActive ? handleSwitch(i) : null}
                     disabled={!isAlive || isActive}
-                    className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
+                    className={`flex items-center gap-3 p-3 pixel-card transition-all ${
                       isActive
-                        ? 'border-yellow-400 bg-yellow-400/20'
+                        ? 'pixel-ring'
                         : isAlive
-                        ? 'border-white/20 bg-gray-800/60 hover:bg-gray-700/60 hover:border-white/40'
-                        : 'border-red-900/30 bg-red-900/20 opacity-50'
+                        ? 'hover:-translate-y-0.5'
+                        : 'opacity-40'
                     }`}
                   >
                     <div className="w-12 h-12 flex-shrink-0">
-                      <img src={getImage(p)} alt={p.name} className="w-full h-full object-contain" style={{ filter: isAlive ? 'none' : 'grayscale(1)' }} />
+                      <img src={getImage(p)} alt={p.name} className="w-full h-full object-contain" style={{ imageRendering: 'pixelated', filter: isAlive ? 'none' : 'grayscale(1)' }} />
                     </div>
                     <div className="flex-1 text-left">
-                      <span className="font-black text-white text-lg">{typeEmojis[p.type] || '⚪'} {p.name}</span>
+                      <span className="font-black pixel-text text-sm">{typeEmojis[p.type] || '⚪'} {p.name}</span>
                       <HPBar current={p.currentHP} max={p.maxHP} size="small" />
                     </div>
-                    {isActive && <span className="text-yellow-400 font-bold text-sm">Active</span>}
-                    {!isAlive && <span className="text-red-400 font-bold text-sm">Fainted</span>}
+                    {isActive && <span className="text-[10px] font-bold" style={{ color: "#7a5a1f" }}>Active</span>}
+                    {!isAlive && <span className="text-[10px] font-bold" style={{ color: "#8a3f2b" }}>Fainted</span>}
                   </button>
                 );
               })}
             </div>
             <button
               onClick={() => { setPhase(PHASE.CHOOSE); setMessage('What will you do?'); }}
-              className="w-full mt-3 text-gray-400 hover:text-white transition font-bold text-lg py-2"
+              className="w-full mt-3 pixel-muted hover:brightness-110 transition font-bold text-sm py-2"
             >
               ← Back
             </button>
@@ -755,16 +788,16 @@ export default function BattleScreen({ wildPokemon, team: initialTeam, onEnd, le
               className="group relative w-full"
               style={{ animation: 'float 2s ease-in-out infinite' }}
             >
-              <div className="absolute inset-0 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition bg-red-500" />
-              <div className="relative bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-black text-2xl px-8 py-5 rounded-2xl border-2 border-red-300/50 shadow-2xl transform hover:scale-105 transition-all active:scale-95">
-                🔴 Throw Pokéball! 🔴
+              <div className="hidden" />
+              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-6 py-4 rounded-none`}>
+                {ballPresentation.icon} Throw {ballPresentation.name}! {ballPresentation.icon}
               </div>
             </button>
             <button
               onClick={handleGiveUp}
-              className="text-gray-400 hover:text-white transition font-bold text-lg py-2"
+              className="pixel-muted hover:brightness-110 transition font-bold text-sm py-2"
             >
-              Leave it be (+{Math.floor((XP_REWARDS[wildPokemon.rarity] || 10) / 2)} XP)
+              Leave it be (+{getSeasonalXpReward(Math.floor((XP_REWARDS[wildPokemon.rarity] || 10) / 2), seasonalEvent, wildPokemon)} XP)
             </button>
           </div>
         )}
@@ -842,5 +875,94 @@ const battleStyles = `
   @keyframes celebration-spin {
     from { transform: rotate(0deg) scale(0.5); }
     to { transform: rotate(360deg) scale(1); }
+  }
+  .gold-battle {
+    background: linear-gradient(180deg, #2b1c0b 0%, #6b4b1a 45%, #c8a75a 100%);
+    color: #2b1c0b;
+    font-family: "Press Start 2P", "VT323", monospace;
+    letter-spacing: 0.3px;
+  }
+  .pixel-panel {
+    background: #f7e8b4;
+    border: 3px solid #6b4b1a;
+    box-shadow: inset -3px -3px 0 #c49a4a, inset 3px 3px 0 #fff4cf, 0 4px 0 #3b2a10;
+  }
+  .pixel-panel-dark {
+    background: #3b2a10;
+    color: #f7e8b4;
+    border: 3px solid #f1d27a;
+    box-shadow: inset -3px -3px 0 #2b1c0b, inset 3px 3px 0 #6b4b1a, 0 4px 0 #1a1207;
+  }
+  .pixel-hp-shell {
+    background: #3b2a10;
+    border: 2px solid #6b4b1a;
+    box-shadow: inset -2px -2px 0 #2b1c0b, inset 2px 2px 0 #6b4b1a;
+    border-radius: 4px;
+  }
+  .pixel-hp-text {
+    color: #6b4b1a;
+  }
+  .pixel-text {
+    color: #3b2a10;
+  }
+  .pixel-muted {
+    color: #6b4b1a;
+  }
+  .pixel-card {
+    background: #fff3c8;
+    border: 3px solid #6b4b1a;
+    box-shadow: inset -3px -3px 0 #e0c073, inset 3px 3px 0 #fff8d9, 0 4px 0 #3b2a10;
+  }
+  .pixel-ring {
+    box-shadow: 0 0 0 2px #f1d27a, 0 0 0 5px #6b4b1a;
+  }
+  .pixel-btn {
+    background: #e3c36a;
+    color: #3b2a10;
+    border: 3px solid #6b4b1a;
+    box-shadow: inset -2px -2px 0 #c49a4a, inset 2px 2px 0 #fff4cf, 0 3px 0 #3b2a10;
+    text-transform: uppercase;
+  }
+  .pixel-btn:hover {
+    filter: brightness(1.05);
+  }
+  .pixel-btn:active {
+    transform: translateY(2px);
+    box-shadow: inset -2px -2px 0 #c49a4a, inset 2px 2px 0 #fff4cf, 0 1px 0 #3b2a10;
+  }
+  .pixel-btn-attack {
+    background: #d8923b;
+    color: #2b1c0b;
+    border-color: #6b4b1a;
+  }
+  .pixel-btn-catch {
+    background: #b2553a;
+    color: #fff4cf;
+    border-color: #5b2316;
+    box-shadow: inset -2px -2px 0 #8a3f2b, inset 2px 2px 0 #e27a5a, 0 3px 0 #3b140c;
+  }
+  .pixel-btn-premier {
+    background: #f8fafc;
+    color: #1f2937;
+    border-color: #64748b;
+    box-shadow: inset -2px -2px 0 #cbd5e1, inset 2px 2px 0 #ffffff, 0 3px 0 #334155;
+  }
+  .pixel-btn-switch {
+    background: #9fb9d4;
+    color: #1e2b3a;
+    border-color: #3d4f67;
+    box-shadow: inset -2px -2px 0 #6e8aa6, inset 2px 2px 0 #d7e5f3, 0 3px 0 #1f2a38;
+  }
+  .pixel-btn-run {
+    background: #8a8a8a;
+    color: #1c1c1c;
+    border-color: #4a4a4a;
+    box-shadow: inset -2px -2px 0 #6d6d6d, inset 2px 2px 0 #cfcfcf, 0 3px 0 #2f2f2f;
+  }
+  .pixel-btn-danger {
+    background: #b2553a;
+    color: #fff4cf;
+    border: 3px solid #5b2316;
+    box-shadow: inset -2px -2px 0 #8a3f2b, inset 2px 2px 0 #e27a5a, 0 3px 0 #3b140c;
   }
 `;

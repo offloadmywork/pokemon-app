@@ -87,6 +87,51 @@ CREATE INDEX IF NOT EXISTS idx_caught_pokemon_user_id ON caught_pokemon(user_id)
 CREATE INDEX IF NOT EXISTS idx_player_progress_user_id ON player_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_user_id ON team(user_id);
 
+-- Player wallet / soft currency
+CREATE TABLE IF NOT EXISTS player_wallet (
+  user_id TEXT PRIMARY KEY,
+  coins INTEGER NOT NULL DEFAULT 0,
+  shards INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Permanent trainer upgrades
+CREATE TABLE IF NOT EXISTS user_upgrades (
+  user_id TEXT NOT NULL,
+  upgrade_id TEXT NOT NULL,
+  level INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  PRIMARY KEY (user_id, upgrade_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_upgrades_user_id ON user_upgrades(user_id);
+
+-- Owned player cosmetics
+CREATE TABLE IF NOT EXISTS user_cosmetics (
+  user_id TEXT NOT NULL,
+  cosmetic_id TEXT NOT NULL,
+  equipped INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  PRIMARY KEY (user_id, cosmetic_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_cosmetics_user_id ON user_cosmetics(user_id);
+
+-- Claimed player achievements
+CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id TEXT NOT NULL,
+  achievement_id TEXT NOT NULL,
+  claimed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  PRIMARY KEY (user_id, achievement_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
+
 -- Daily quests
 CREATE TABLE IF NOT EXISTS daily_quests (
   id TEXT PRIMARY KEY,
@@ -109,6 +154,16 @@ CREATE TABLE IF NOT EXISTS daily_quests (
 
 CREATE INDEX IF NOT EXISTS idx_daily_quests_user_date ON daily_quests(user_id, quest_date);
 
+-- Daily quest claim streaks
+CREATE TABLE IF NOT EXISTS daily_quest_streaks (
+  user_id TEXT PRIMARY KEY,
+  current_streak INTEGER NOT NULL DEFAULT 0,
+  longest_streak INTEGER NOT NULL DEFAULT 0,
+  last_claim_date TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 
 -- Challenge tower progress
 CREATE TABLE IF NOT EXISTS challenge_tower_progress (
@@ -122,6 +177,20 @@ CREATE TABLE IF NOT EXISTS challenge_tower_progress (
 );
 
 CREATE INDEX IF NOT EXISTS idx_challenge_tower_user_id ON challenge_tower_progress(user_id);
+
+-- Zone boss clear progression
+CREATE TABLE IF NOT EXISTS boss_clears (
+  user_id TEXT NOT NULL,
+  boss_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  reward_xp INTEGER NOT NULL DEFAULT 0,
+  cleared_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  PRIMARY KEY (user_id, boss_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_boss_clears_user_id ON boss_clears(user_id);
 
 -- Leaderboards
 CREATE TABLE IF NOT EXISTS leaderboard_entries (
@@ -137,3 +206,97 @@ CREATE TABLE IF NOT EXISTS leaderboard_entries (
 
 CREATE INDEX IF NOT EXISTS idx_leaderboard_entries_key_score ON leaderboard_entries(leaderboard_key, score DESC);
 CREATE INDEX IF NOT EXISTS idx_leaderboard_entries_user_id ON leaderboard_entries(user_id);
+
+-- PvP matchmaking queue
+CREATE TABLE IF NOT EXISTS pvp_queue (
+  user_id TEXT PRIMARY KEY,
+  team_power INTEGER NOT NULL,
+  queued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pvp_queue_team_power ON pvp_queue(team_power);
+
+-- PvP match results
+CREATE TABLE IF NOT EXISTS pvp_matches (
+  id TEXT PRIMARY KEY,
+  player_user_id TEXT NOT NULL,
+  opponent_user_id TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  winner_user_id TEXT,
+  player_remaining_pokemon INTEGER NOT NULL DEFAULT 0,
+  opponent_remaining_pokemon INTEGER NOT NULL DEFAULT 0,
+  completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (player_user_id) REFERENCES users(id),
+  FOREIGN KEY (opponent_user_id) REFERENCES users(id),
+  FOREIGN KEY (winner_user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_player ON pvp_matches(player_user_id, completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_opponent ON pvp_matches(opponent_user_id, completed_at DESC);
+
+-- Co-op raid rooms
+CREATE TABLE IF NOT EXISTS coop_raid_rooms (
+  id TEXT PRIMARY KEY,
+  host_user_id TEXT NOT NULL,
+  boss_id TEXT NOT NULL,
+  boss_name TEXT NOT NULL,
+  level INTEGER NOT NULL DEFAULT 1,
+  max_hp INTEGER NOT NULL,
+  current_hp INTEGER NOT NULL,
+  power INTEGER NOT NULL,
+  reward_xp INTEGER NOT NULL DEFAULT 0,
+  reward_coins INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'waiting',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (host_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS coop_raid_participants (
+  raid_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  team_power INTEGER NOT NULL DEFAULT 0,
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (raid_id) REFERENCES coop_raid_rooms(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  PRIMARY KEY (raid_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_coop_raid_rooms_status ON coop_raid_rooms(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_coop_raid_participants_user ON coop_raid_participants(user_id, joined_at DESC);
+
+-- Trading
+CREATE TABLE IF NOT EXISTS trade_offers (
+  id TEXT PRIMARY KEY,
+  from_user_id TEXT NOT NULL,
+  to_user_id TEXT NOT NULL,
+  offered_caught_id TEXT NOT NULL,
+  requested_caught_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'complete', 'cancelled', 'declined')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (from_user_id) REFERENCES users(id),
+  FOREIGN KEY (to_user_id) REFERENCES users(id),
+  FOREIGN KEY (offered_caught_id) REFERENCES caught_pokemon(id),
+  FOREIGN KEY (requested_caught_id) REFERENCES caught_pokemon(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trade_offers_from_user ON trade_offers(from_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trade_offers_to_user ON trade_offers(to_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trade_offers_status ON trade_offers(status);
+CREATE INDEX IF NOT EXISTS idx_trade_offers_pending_from_user ON trade_offers(status, from_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trade_offers_pending_to_user ON trade_offers(status, to_user_id, created_at DESC);
+
+-- Player session analytics for KPI snapshots
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  started_at DATETIME NOT NULL,
+  ended_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_started ON user_sessions(user_id, started_at DESC);

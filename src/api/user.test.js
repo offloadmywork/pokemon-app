@@ -96,6 +96,18 @@ describe('PokemonAPI User Management', () => {
       expect(userId).toBe('test-uuid-12345');
       expect(localStorageMock.setItem).toHaveBeenCalledWith('pokemon-user-id', 'test-uuid-12345');
     });
+
+    it('should expose the current user ID as a trainer recovery code', async () => {
+      localStorageMock.setItem('pokemon-user-id', 'recoverable-user-id');
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user_id: 'recoverable-user-id', existing: true }),
+      });
+
+      const recoveryCode = await pokemonAPI.getTrainerRecoveryCode();
+
+      expect(recoveryCode).toBe('recoverable-user-id');
+    });
   });
 
   describe('API methods with user_id', () => {
@@ -337,6 +349,46 @@ describe('PokemonAPI User Management', () => {
 
       const body = JSON.parse(fetchCall[1].body);
       expect(body).toEqual({ user_id: 'test-user' });
+    });
+
+    it('should include user_id in getBossClears request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([]),
+      });
+
+      await pokemonAPI.getBossClears();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/boss-clears?user_id=test-user'),
+        expect.any(Object)
+      );
+    });
+
+    it('should include user_id in recordBossClear request', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ boss_key: 'grove-guardian' }),
+      });
+
+      await pokemonAPI.recordBossClear({
+        boss_key: 'grove-guardian',
+        name: 'Grove Guardian',
+        reward_xp: 120,
+        cleared_at: '2026-07-04T20:17:00.000Z',
+      });
+
+      const fetchCall = global.fetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/api/boss-clears');
+
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body).toEqual({
+        user_id: 'test-user',
+        boss_key: 'grove-guardian',
+        name: 'Grove Guardian',
+        reward_xp: 120,
+        cleared_at: '2026-07-04T20:17:00.000Z',
+      });
     });
   });
 });

@@ -12,6 +12,9 @@ export class CollectionViewModel {
     this.isLoading = true;
     this.currentPage = 1;
     this.error = null;
+    this.searchTerm = '';
+    this.typeFilter = 'all';
+    this.rarityFilter = 'all';
     
     // Team state (will be persisted via API in future)
     this.team = [];
@@ -37,28 +40,35 @@ export class CollectionViewModel {
     
     try {
       const caughtList = await this.api.getCaughtPokemon();
-      
-      // Auto-claim starters for new users
-      if (caughtList.length === 0) {
-        try {
-          const result = await this.api.claimStarters();
-          if (result.success && result.starters) {
-            // Add starters to team automatically
-            this._autoAddStartersToTeam(result.starters);
-            
-            // Reload collection
-            const updatedList = await this.api.getCaughtPokemon();
-            this.caughtPokemon = updatedList;
-          }
-        } catch (claimErr) {
-          console.error('Auto-claim failed:', claimErr);
-        }
-      } else {
-        this.caughtPokemon = caughtList;
-      }
+      this.caughtPokemon = caughtList;
     } catch (err) {
       this.error = err.message;
       console.error('Failed to fetch collection:', err);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async claimStartersForEmptyCollection() {
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      const result = await this.api.claimStarters();
+      if (!result.success) {
+        return { success: false, message: result.message || 'Failed to claim starters' };
+      }
+
+      if (result.starters) {
+        this._autoAddStartersToTeam(result.starters);
+      }
+
+      this.caughtPokemon = await this.api.getCaughtPokemon();
+      return { success: true, starters: result.starters || [] };
+    } catch (err) {
+      this.error = err.message;
+      console.error('Failed to claim starters:', err);
+      return { success: false, message: err.message };
     } finally {
       this.isLoading = false;
     }
@@ -150,11 +160,11 @@ export class CollectionViewModel {
   
   get currentPageItems() {
     const start = (this.currentPage - 1) * this.itemsPerPage;
-    return this.caughtPokemon.slice(start, start + this.itemsPerPage);
+    return this.filteredPokemon.slice(start, start + this.itemsPerPage);
   }
 
   get totalPages() {
-    return Math.max(1, Math.ceil(this.caughtPokemon.length / this.itemsPerPage));
+    return Math.max(1, Math.ceil(this.filteredPokemon.length / this.itemsPerPage));
   }
 
   get hasMorePages() {
@@ -175,6 +185,46 @@ export class CollectionViewModel {
 
   goToPage(page) {
     this.currentPage = Math.max(1, Math.min(this.totalPages, page));
+  }
+
+  setSearchTerm(term) {
+    this.searchTerm = term || '';
+    this.currentPage = 1;
+  }
+
+  setTypeFilter(type) {
+    this.typeFilter = type || 'all';
+    this.currentPage = 1;
+  }
+
+  setRarityFilter(rarity) {
+    this.rarityFilter = rarity || 'all';
+    this.currentPage = 1;
+  }
+
+  get filteredPokemon() {
+    const search = this.searchTerm.trim().toLowerCase();
+
+    return this.caughtPokemon.filter((caught) => {
+      const fields = this._getDiscoveryFields(caught);
+      const matchesSearch = !search || fields.searchText.includes(search);
+      const matchesType = this.typeFilter === 'all' || fields.type === this.typeFilter;
+      const matchesRarity = this.rarityFilter === 'all' || fields.rarity === this.rarityFilter;
+
+      return matchesSearch && matchesType && matchesRarity;
+    });
+  }
+
+  get discoverySummary() {
+    return {
+      total: this.caughtPokemon.length,
+      visible: this.filteredPokemon.length,
+      hasFilters: Boolean(
+        this.searchTerm.trim() ||
+        this.typeFilter !== 'all' ||
+        this.rarityFilter !== 'all'
+      ),
+    };
   }
 
   // ═══════════════════════════════════════════════════
@@ -281,6 +331,20 @@ export class CollectionViewModel {
         currentHP: TEAM_HP,
       });
     }
+  }
+
+  _getDiscoveryFields(caught) {
+    const pokemon = caught?.pokemon || {};
+    const name = caught?.name || pokemon.name || '';
+    const nickname = caught?.nickname || '';
+    const type = caught?.type || pokemon.type || '';
+    const rarity = caught?.rarity || pokemon.rarity || '';
+
+    return {
+      type,
+      rarity,
+      searchText: `${name} ${nickname} ${type} ${rarity}`.toLowerCase(),
+    };
   }
 }
 

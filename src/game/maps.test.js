@@ -48,6 +48,17 @@ describe('Maps System', () => {
       });
     });
 
+    it('first three Phase 1 maps should expose boss POIs', () => {
+      MAPS.slice(0, 3).forEach(map => {
+        expect(map.pois).toContainEqual(expect.objectContaining({
+          type: 'boss',
+          name: expect.any(String),
+          x: expect.any(Number),
+          y: expect.any(Number),
+        }));
+      });
+    });
+
     it('start position should be walkable on all maps', () => {
       MAPS.forEach(map => {
         const tile = map.data[map.startY][map.startX];

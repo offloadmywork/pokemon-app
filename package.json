@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "verify:release": "npm test -- --run && npm run build && node scripts/content-volume-audit.js && node scripts/d1-query-index-audit.js && node scripts/gdd-coverage-audit.js && node scripts/monetization-fairness-audit.js && node scripts/web-performance-audit.js && npx wrangler deploy --dry-run --outdir /tmp/pokemon-worker-dry-run"
   },
   "dependencies": {
     "hono": "^4.11.9",

@@ -48,5 +48,6 @@ describe('EvolutionPanel', () => {
     fireEvent.click(evolveButton);
 
     expect(mockApiClient.evolvePokemon).toHaveBeenCalledWith('c1');
+    expect(await screen.findByText('Evolution complete!')).toBeInTheDocument();
   });
 });

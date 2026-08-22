@@ -131,6 +131,55 @@ export function getActivePokemon(team) {
 }
 
 /**
+ * Summarize team type coverage for player-facing team-building hints.
+ */
+export function getTeamSynergySummary(team = []) {
+  const types = [];
+
+  team.forEach((member) => {
+    if (member?.type && !types.includes(member.type)) {
+      types.push(member.type);
+    }
+  });
+
+  if (types.length >= 3) {
+    return {
+      typeCount: types.length,
+      types,
+      tone: 'balanced',
+      message: `Balanced coverage: ${types.join(', ')}`,
+    };
+  }
+
+  return {
+    typeCount: types.length,
+    types,
+    tone: 'narrow',
+    message: 'Add different Pokemon types to improve coverage.',
+  };
+}
+
+/**
+ * Move a team member from one battle slot to another without mutating input.
+ */
+export function moveTeamMember(team = [], fromIndex, toIndex) {
+  if (!Array.isArray(team)) return [];
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= team.length ||
+    toIndex >= team.length
+  ) {
+    return [...team];
+  }
+
+  const newTeam = [...team];
+  const [member] = newTeam.splice(fromIndex, 1);
+  newTeam.splice(toIndex, 0, member);
+  return newTeam;
+}
+
+/**
  * Add a Pokemon to the team (async)
  */
 export async function addToTeamAsync(pokemon) {

@@ -1,5 +1,8 @@
 // Pokemon App API Client for Cloudflare Workers
 
+import { calculateCoopRaidTeamPower } from "@/game/coopRaids";
+import { calculatePvpTeamPower } from "@/game/pvp";
+
 const API_BASE = import.meta.env.DEV ? 'http://localhost:8787' : '';
 const USER_ID_KEY = 'pokemon-user-id';
 
@@ -33,6 +36,10 @@ class PokemonAPI {
     
     this.userId = userId;
     return userId;
+  }
+
+  async getTrainerRecoveryCode() {
+    return this.getUserId();
   }
 
   async request(endpoint, options = {}) {
@@ -69,8 +76,11 @@ class PokemonAPI {
     });
   }
 
-  async getRandomPokemon(rarity = null) {
-    const params = rarity ? `?rarity=${encodeURIComponent(rarity)}` : '';
+  async getRandomPokemon(rarity = null, type = null) {
+    const query = new URLSearchParams();
+    if (rarity) query.set('rarity', rarity);
+    if (type) query.set('type', type);
+    const params = query.toString() ? `?${query.toString()}` : '';
     return this.request(`/api/pokemon/random/get${params}`);
   }
 
@@ -122,6 +132,68 @@ class PokemonAPI {
     return this.request('/api/player/progress', {
       method: 'POST',
       body: JSON.stringify({ xp, level, user_id: userId }),
+    });
+  }
+  // ====================
+
+  // ===== PLAYER WALLET API =====
+  async getWallet() {
+    const userId = await this.getUserId();
+    return this.request(`/api/player/wallet?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async purchaseShopItem(itemId, quantity = 1) {
+    const userId = await this.getUserId();
+    return this.request('/api/shop/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: itemId, quantity, user_id: userId }),
+    });
+  }
+
+  async getUpgrades() {
+    const userId = await this.getUserId();
+    return this.request(`/api/player/upgrades?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async purchaseUpgrade(upgradeId) {
+    const userId = await this.getUserId();
+    return this.request('/api/upgrades/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ upgrade_id: upgradeId, user_id: userId }),
+    });
+  }
+
+  async getCosmetics() {
+    const userId = await this.getUserId();
+    return this.request(`/api/player/cosmetics?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async purchaseCosmetic(cosmeticId) {
+    const userId = await this.getUserId();
+    return this.request('/api/cosmetics/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ cosmetic_id: cosmeticId, user_id: userId }),
+    });
+  }
+
+  async equipCosmetic(cosmeticId) {
+    const userId = await this.getUserId();
+    return this.request('/api/cosmetics/equip', {
+      method: 'POST',
+      body: JSON.stringify({ cosmetic_id: cosmeticId, user_id: userId }),
+    });
+  }
+
+  async getAchievements() {
+    const userId = await this.getUserId();
+    return this.request(`/api/player/achievements?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async claimAchievement(achievementId) {
+    const userId = await this.getUserId();
+    return this.request('/api/achievements/claim', {
+      method: 'POST',
+      body: JSON.stringify({ achievement_id: achievementId, user_id: userId }),
     });
   }
   // ====================
@@ -241,6 +313,21 @@ class PokemonAPI {
     });
   }
 
+  // ===== BOSS CLEAR PROGRESSION API =====
+  async getBossClears() {
+    const userId = await this.getUserId();
+    return this.request(`/api/boss-clears?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async recordBossClear(clear) {
+    const userId = await this.getUserId();
+    return this.request('/api/boss-clears', {
+      method: 'POST',
+      body: JSON.stringify({ ...clear, user_id: userId }),
+    });
+  }
+  // ====================
+
   // ===== LEADERBOARDS API =====
   async getLeaderboard(key = 'level', limit = null) {
     const query = new URLSearchParams({ key });
@@ -263,6 +350,109 @@ class PokemonAPI {
     });
   }
   // ====================
+
+  // ===== PVP API =====
+  async joinPvpQueue(team = []) {
+    const userId = await this.getUserId();
+    const teamPower = calculatePvpTeamPower(team);
+    return this.request('/api/pvp/queue', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, team_power: teamPower }),
+    });
+  }
+
+  async leavePvpQueue() {
+    const userId = await this.getUserId();
+    return this.request(`/api/pvp/queue?user_id=${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async submitPvpMatchResult(result) {
+    const userId = await this.getUserId();
+    return this.request('/api/pvp/matches', {
+      method: 'POST',
+      body: JSON.stringify({ ...result, user_id: userId }),
+    });
+  }
+
+  async getPvpMatchHistory(limit = 5) {
+    const userId = await this.getUserId();
+    return this.request(`/api/pvp/matches?user_id=${encodeURIComponent(userId)}&limit=${encodeURIComponent(limit)}`);
+  }
+  // ==============
+
+  // ===== CO-OP RAID API =====
+  async createCoopRaid(team = [], level = 1) {
+    const userId = await this.getUserId();
+    const teamPower = calculateCoopRaidTeamPower(team);
+    return this.request('/api/coop-raids', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, team_power: teamPower, level }),
+    });
+  }
+
+  async joinCoopRaid(raidId, team = []) {
+    const userId = await this.getUserId();
+    const teamPower = calculateCoopRaidTeamPower(team);
+    return this.request(`/api/coop-raids/${encodeURIComponent(raidId)}/join`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, team_power: teamPower }),
+    });
+  }
+
+  async attackCoopRaid(raidId, damageDealt) {
+    const userId = await this.getUserId();
+    return this.request(`/api/coop-raids/${encodeURIComponent(raidId)}/attack`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, damage_dealt: damageDealt }),
+    });
+  }
+  // ========================
+
+  // ===== TRADING API =====
+  async listTradeOffers() {
+    const userId = await this.getUserId();
+    return this.request(`/api/trades?user_id=${encodeURIComponent(userId)}`);
+  }
+
+  async createTradeOffer({ toUserId, offeredCaughtId, requestedCaughtId }) {
+    const userId = await this.getUserId();
+    return this.request('/api/trades', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        to_user_id: toUserId,
+        offered_caught_id: offeredCaughtId,
+        requested_caught_id: requestedCaughtId,
+      }),
+    });
+  }
+
+  async acceptTradeOffer(tradeId) {
+    const userId = await this.getUserId();
+    return this.request(`/api/trades/${encodeURIComponent(tradeId)}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
+  async cancelTradeOffer(tradeId) {
+    const userId = await this.getUserId();
+    return this.request(`/api/trades/${encodeURIComponent(tradeId)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
+  async declineTradeOffer(tradeId) {
+    const userId = await this.getUserId();
+    return this.request(`/api/trades/${encodeURIComponent(tradeId)}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+  // ===================
 
   // ===== EVOLUTION API =====
   async getEvolutionOptions() {

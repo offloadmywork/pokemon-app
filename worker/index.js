@@ -3,9 +3,26 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { buildChallengeTowerFloors, CHALLENGE_TOWER_MAX_FLOORS } from '../src/game/challengeTower.js';
+import { getLevelFromXP } from '../src/game/constants.js';
 import { getMaxHP } from '../src/game/battle.js';
+import { getDailyQuestTemplateKeysForEvent } from '../src/game/dailyQuestEvents.js';
+import { getDailyQuestTemplatesForDate } from '../src/game/dailyQuestTemplates.js';
+import { buildKpiSnapshot } from '../src/game/kpiMetrics.js';
+import { buildCoopRaidBoss } from '../src/game/coopRaids.js';
+import { getCosmetic, COSMETIC_CATALOG, previewCosmeticPurchase } from '../src/game/cosmetics.js';
+import { previewShopPurchase, previewUpgradePurchase } from '../src/game/economy.js';
+import { ACHIEVEMENT_CATALOG, evaluateCollectionAchievements, getAchievement } from '../src/game/achievements.js';
+import { calculatePvpRewards, resolvePvpBattleResult } from '../src/game/pvp.js';
+import { applyDailyQuestStreakAfterClaim } from './dailyQuestStreaks.js';
+import { listBossClears, recordBossClear } from './bossProgress.js';
+import { createCoopRaidRoom, getCoopRaidRoom, joinCoopRaidRoom, recordCoopRaidAttempt } from './coopRaids.js';
+import { getPlayerWallet, grantPlayerCoins } from './playerWallet.js';
+import { findQueuedPvpOpponent, getPvpOpponentTeam, leavePvpQueue, upsertPvpQueueEntry } from './pvpQueue.js';
+import { listPvpMatchHistory, recordPvpMatchResult } from './pvpMatches.js';
+import { acceptTradeOffer, cancelTradeOffer, createTradeOffer, declineTradeOffer, listTradeOffers } from './trades.js';
 
 const app = new Hono();
+const RARE_QUEST_RARITIES = new Set(['Rare', 'Epic', 'Legendary']);
 
 // Starter Pokemon data (for new users)
 const STARTER_POKEMON = [
@@ -35,37 +52,6 @@ const STARTER_POKEMON = [
   }
 ];
 
-const DAILY_QUEST_TEMPLATES = [
-  {
-    key: 'catch-1',
-    title: 'Catch 1 Pokémon',
-    description: 'Catch a Pokémon today',
-    target: 1,
-    reward_xp: 25,
-    reward_item_id: 'pokeball',
-    reward_item_quantity: 1,
-  },
-  {
-    key: 'battle-1',
-    title: 'Win 1 Battle',
-    description: 'Win a battle today',
-    target: 1,
-    reward_xp: 40,
-    reward_item_id: 'potion',
-    reward_item_quantity: 1,
-  },
-  {
-    key: 'use-item',
-    title: 'Use 1 Item',
-    description: 'Use an item from your inventory',
-    target: 1,
-    reward_xp: 20,
-    reward_item_id: null,
-    reward_item_quantity: 0,
-  },
-];
-
-
 const CHALLENGE_TOWER_FLOORS = buildChallengeTowerFloors(CHALLENGE_TOWER_MAX_FLOORS);
 
 
@@ -78,6 +64,118 @@ const ensureUserExists = async (db, userId) => {
   ).bind(userId).run();
 };
 
+const grantPlayerXpReward = async (db, userId, xpReward = 0) => {
+  if (!userId || xpReward <= 0) return null;
+
+  const { results } = await db.prepare(
+    'SELECT xp, level FROM player_progress WHERE user_id = ?'
+  ).bind(userId).all();
+
+  const currentProgress = results?.[0] || { xp: 0, level: 1 };
+  const nextXp = (currentProgress.xp || 0) + xpReward;
+  const nextLevel = getLevelFromXP(nextXp);
+
+  if (results?.[0]) {
+    await db.prepare(
+      `UPDATE player_progress
+       SET xp = ?, level = ?, updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(nextXp, nextLevel, userId).run();
+  } else {
+    await db.prepare(
+      `INSERT INTO player_progress (id, user_id, xp, level, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))`
+    ).bind(uuidv4(), userId, nextXp, nextLevel).run();
+  }
+
+  return { xp: nextXp, level: nextLevel };
+};
+
+const incrementDailyQuestProgressByTemplateKey = async (db, userId, templateKey, amount = 1) => {
+  if (!userId || !templateKey) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const safeAmount = Math.max(0, amount);
+  if (safeAmount === 0) return;
+
+  // Only increment if the quest exists for today and is not already completed.
+  // (Completion is also clamped to target.)
+  await db.prepare(
+    `UPDATE daily_quests
+     SET progress = MIN(target, progress + ?),
+         completed_at = CASE
+           WHEN (progress + ?) >= target AND completed_at IS NULL THEN datetime('now')
+           ELSE completed_at
+         END
+     WHERE user_id = ?
+       AND quest_date = ?
+       AND template_key = ?`
+  ).bind(safeAmount, safeAmount, userId, today, templateKey).run();
+};
+
+const incrementDailyQuestsForEvent = async (db, userId, event, amount = 1) => {
+  const keys = getDailyQuestTemplateKeysForEvent(event);
+  for (const key of keys) {
+    // If daily quests haven't been generated yet today, we don't auto-generate here.
+    // The Home screen fetch (`GET /api/daily-quests`) handles generation.
+    await incrementDailyQuestProgressByTemplateKey(db, userId, key, amount);
+  }
+};
+
+const getDailyTaskSlotUpgradeLevel = async (db, userId) => {
+  const { results } = await db.prepare(
+    'SELECT level FROM user_upgrades WHERE user_id = ? AND upgrade_id = ?'
+  ).bind(userId, 'daily_task_slot').all();
+
+  const parsed = Number(results?.[0]?.level);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+};
+
+const getCollectionAchievementProgress = async (db, userId) => {
+  const { results } = await db.prepare(
+    'SELECT COUNT(DISTINCT pokemon_id) AS caught_count FROM caught_pokemon WHERE user_id = ?'
+  ).bind(userId).all();
+
+  const parsed = Number(results?.[0]?.caught_count);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+};
+
+const listClaimedAchievements = async (db, userId) => {
+  const { results } = await db.prepare(
+    'SELECT achievement_id, claimed_at FROM user_achievements WHERE user_id = ?'
+  ).bind(userId).all();
+
+  return results || [];
+};
+
+const addWalletReward = async (db, userId, reward = {}) => {
+  const wallet = await getPlayerWallet(db, userId);
+  const nextWallet = {
+    coins: (Number(wallet.coins) || 0) + (Number(reward.coins) || 0),
+    shards: (Number(wallet.shards) || 0) + (Number(reward.shards) || 0),
+  };
+
+  if (wallet.user_id) {
+    await db.prepare(
+      `UPDATE player_wallet
+       SET coins = ?, shards = ?, updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(nextWallet.coins, nextWallet.shards, userId).run();
+  } else {
+    await db.prepare(
+      `INSERT INTO player_wallet (user_id, coins, shards, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`
+    ).bind(userId, nextWallet.coins, nextWallet.shards).run();
+  }
+
+  return { user_id: userId, ...nextWallet };
+};
+
+const mapBossClearToKpiRow = (row) => ({
+  ...row,
+  zone_id: row.zone_id || (row.boss_key === 'grove-guardian' ? 'zone-1' : row.boss_key),
+});
+
 // Enable CORS
 app.use('/api/*', cors());
 
@@ -87,7 +185,7 @@ app.post('/api/user', async (c) => {
   try {
     const data = await c.req.json();
     const { user_id } = data;
-    
+
     if (!user_id) {
       return c.json({ error: 'user_id is required' }, 400);
     }
@@ -170,17 +268,28 @@ app.get('/api/pokemon/:id', async (c) => {
   }
 });
 
-// Get a random Pokemon (optionally filtered by rarity)
+// Get a random Pokemon (optionally filtered by rarity/type)
 app.get('/api/pokemon/random/get', async (c) => {
   try {
     const rarity = c.req.query('rarity');
+    const type = c.req.query('type');
     
     let query = 'SELECT * FROM pokemon';
     const params = [];
+    const filters = [];
     
     if (rarity) {
-      query += ' WHERE rarity = ?';
+      filters.push('rarity = ?');
       params.push(rarity);
+    }
+
+    if (type) {
+      filters.push('type = ?');
+      params.push(type);
+    }
+
+    if (filters.length > 0) {
+      query += ` WHERE ${filters.join(' AND ')}`;
     }
     
     query += ' ORDER BY RANDOM() LIMIT 1';
@@ -259,7 +368,11 @@ app.post('/api/caught', async (c) => {
   try {
     const data = await c.req.json();
     const id = uuidv4();
-    
+
+    if (data.user_id) {
+      await ensureUserExists(c.env.DB, data.user_id);
+    }
+
     await c.env.DB.prepare(
       `INSERT INTO caught_pokemon (id, pokemon_id, user_id, nickname) 
        VALUES (?, ?, ?, ?)`
@@ -269,7 +382,20 @@ app.post('/api/caught', async (c) => {
       data.user_id || null,
       data.nickname || null
     ).run();
-    
+
+    // Progress daily quests (if they exist for today)
+    if (data.user_id) {
+      await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'catch', 1);
+
+      const { results: caughtPokemon } = await c.env.DB.prepare(
+        'SELECT rarity FROM pokemon WHERE id = ?'
+      ).bind(data.pokemon_id).all();
+
+      if (RARE_QUEST_RARITIES.has(caughtPokemon[0]?.rarity)) {
+        await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'rareCatch', 1);
+      }
+    }
+
     return c.json({ id, ...data }, 201);
   } catch (error) {
     return c.json({ error: error.message }, 500);
@@ -312,7 +438,7 @@ app.post('/api/starter/claim', async (c) => {
       let { results: existingStarter } = await c.env.DB.prepare(
         'SELECT id FROM pokemon WHERE name = ?'
       ).bind(starter.name).all();
-      
+
       let pokemonId;
       
       if (existingStarter.length > 0) {
@@ -398,6 +524,143 @@ app.delete('/api/caught/:id', async (c) => {
   }
 });
 
+// ===== TRADING API =====
+app.get('/api/trades', async (c) => {
+  try {
+    const userId = c.req.query('user_id');
+
+    if (!userId) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, userId);
+
+    const offers = await listTradeOffers(c.env.DB, userId);
+    return c.json(offers);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/trades', async (c) => {
+  try {
+    const data = await c.req.json();
+    const {
+      user_id,
+      to_user_id,
+      offered_caught_id,
+      requested_caught_id,
+    } = data;
+
+    if (!user_id || !to_user_id || !offered_caught_id || !requested_caught_id) {
+      return c.json({ error: 'user_id, to_user_id, offered_caught_id, and requested_caught_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    await ensureUserExists(c.env.DB, to_user_id);
+
+    const tradeOffer = await createTradeOffer(c.env.DB, {
+      fromUserId: user_id,
+      toUserId: to_user_id,
+      offeredCaughtId: offered_caught_id,
+      requestedCaughtId: requested_caught_id,
+    });
+
+    if (tradeOffer.status === 'rejected') {
+      return c.json({ error: tradeOffer.reason }, 400);
+    }
+
+    return c.json(tradeOffer, 201);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/trades/:id/accept', async (c) => {
+  try {
+    const tradeId = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const result = await acceptTradeOffer(c.env.DB, { tradeId, userId: user_id });
+
+    if (!result) {
+      return c.json({ error: 'Trade offer not found' }, 404);
+    }
+
+    if (result.status === 'failed') {
+      return c.json({ error: result.reason, offer: result.offer }, 400);
+    }
+
+    return c.json(result);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/trades/:id/cancel', async (c) => {
+  try {
+    const tradeId = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const result = await cancelTradeOffer(c.env.DB, { tradeId, userId: user_id });
+
+    if (!result) {
+      return c.json({ error: 'Trade offer not found' }, 404);
+    }
+
+    if (result.status === 'failed') {
+      return c.json({ error: result.reason, offer: result.offer }, 400);
+    }
+
+    return c.json(result);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/trades/:id/decline', async (c) => {
+  try {
+    const tradeId = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+
+    const result = await declineTradeOffer(c.env.DB, { tradeId, userId: user_id });
+
+    if (!result) {
+      return c.json({ error: 'Trade offer not found' }, 404);
+    }
+
+    if (result.status === 'failed') {
+      return c.json({ error: result.reason, offer: result.offer }, 400);
+    }
+
+    return c.json(result);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// =====================
+
 // ===== PLAYER PROGRESS API - Cross-device persistence =====
 // Get player progress (XP, level)
 app.get('/api/player/progress', async (c) => {
@@ -439,14 +702,14 @@ app.post('/api/player/progress', async (c) => {
   try {
     const data = await c.req.json();
     const { xp = 0, level = 1, user_id = null } = data;
-    
+
     if (user_id) {
       // User-specific progress
       // Check if exists
       const { results: existing } = await c.env.DB.prepare(
         'SELECT id FROM player_progress WHERE user_id = ?'
       ).bind(user_id).all();
-      
+
       if (existing.length > 0) {
         // Update existing
         await c.env.DB.prepare(
@@ -455,28 +718,415 @@ app.post('/api/player/progress', async (c) => {
       } else {
         // Insert new
         await c.env.DB.prepare(
-          `INSERT INTO player_progress (id, user_id, xp, level, updated_at) 
+          `INSERT INTO player_progress (id, user_id, xp, level, updated_at)
            VALUES (?, ?, ?, ?, datetime('now'))`
         ).bind(uuidv4(), user_id, xp, level).run();
       }
     } else {
       // Legacy: Upsert progress (single row table with id=1)
       await c.env.DB.prepare(
-        `INSERT INTO player_progress (id, xp, level, updated_at) 
+        `INSERT INTO player_progress (id, xp, level, updated_at)
          VALUES (1, ?, ?, datetime('now'))
-         ON CONFLICT(id) DO UPDATE SET 
-           xp = excluded.xp, 
+         ON CONFLICT(id) DO UPDATE SET
+           xp = excluded.xp,
            level = excluded.level,
            updated_at = datetime('now')`
       ).bind(xp, level).run();
     }
-    
+
     return c.json({ xp, level });
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
 });
 // ================================================
+
+// ===== PLAYER WALLET API =====
+// Get player wallet (soft currencies)
+app.get('/api/player/wallet', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const wallet = await getPlayerWallet(c.env.DB, user_id);
+    return c.json(wallet);
+  } catch (error) {
+    if (error.message.includes('no such table')) {
+      return c.json({
+        user_id: c.req.query('user_id') || null,
+        coins: 0,
+        shards: 0,
+      });
+    }
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
+
+// ===== SHOP API =====
+// Purchase an item with persisted player wallet coins
+app.post('/api/shop/purchase', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, item_id } = data;
+    const quantity = Number(data.quantity ?? 1);
+
+    if (!user_id || !item_id) {
+      return c.json({ error: 'user_id and item_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const wallet = await getPlayerWallet(c.env.DB, user_id);
+    const { results: existingItems } = await c.env.DB.prepare(
+      'SELECT id, item_id, quantity FROM user_items WHERE user_id = ? AND item_id = ?'
+    ).bind(user_id, item_id).all();
+    const existingItem = existingItems?.[0] || null;
+    const preview = previewShopPurchase({
+      wallet,
+      inventory: { [item_id]: existingItem?.quantity || 0 },
+      itemId: item_id,
+      quantity,
+    });
+
+    if (!preview.ok) {
+      return c.json({ error: preview.reason }, 400);
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE player_wallet
+       SET coins = ?, shards = ?, updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(preview.wallet.coins, preview.wallet.shards, user_id).run();
+
+    const nextItemQuantity = preview.inventory[item_id];
+    if (existingItem) {
+      await c.env.DB.prepare(
+        'UPDATE user_items SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(nextItemQuantity, existingItem.id).run();
+    } else {
+      await c.env.DB.prepare(
+        'INSERT INTO user_items (id, user_id, item_id, quantity) VALUES (?, ?, ?, ?)'
+      ).bind(uuidv4(), user_id, item_id, nextItemQuantity).run();
+    }
+
+    return c.json({
+      success: true,
+      item_id,
+      quantity,
+      total_cost: preview.total_cost,
+      wallet: { user_id, ...preview.wallet },
+      item: { item_id, quantity: nextItemQuantity },
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Get user's permanent trainer upgrades
+app.get('/api/player/upgrades', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const { results } = await c.env.DB.prepare(
+      'SELECT upgrade_id, level FROM user_upgrades WHERE user_id = ?'
+    ).bind(user_id).all();
+    const upgrades = (results || []).reduce((acc, upgrade) => {
+      acc[upgrade.upgrade_id] = upgrade.level;
+      return acc;
+    }, {});
+
+    return c.json({ user_id, upgrades });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Purchase a permanent trainer upgrade with persisted wallet coins
+app.post('/api/upgrades/purchase', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, upgrade_id } = data;
+
+    if (!user_id || !upgrade_id) {
+      return c.json({ error: 'user_id and upgrade_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const wallet = await getPlayerWallet(c.env.DB, user_id);
+    const { results: existingUpgrades } = await c.env.DB.prepare(
+      'SELECT upgrade_id, level FROM user_upgrades WHERE user_id = ? AND upgrade_id = ?'
+    ).bind(user_id, upgrade_id).all();
+    const existingUpgrade = existingUpgrades?.[0] || null;
+    const preview = previewUpgradePurchase({
+      wallet,
+      upgrades: { [upgrade_id]: existingUpgrade?.level || 0 },
+      upgradeId: upgrade_id,
+    });
+
+    if (!preview.ok) {
+      return c.json({ error: preview.reason }, 400);
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE player_wallet
+       SET coins = ?, shards = ?, updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(preview.wallet.coins, preview.wallet.shards, user_id).run();
+
+    if (existingUpgrade) {
+      await c.env.DB.prepare(
+        `UPDATE user_upgrades
+         SET level = ?, updated_at = datetime('now')
+         WHERE user_id = ? AND upgrade_id = ?`
+      ).bind(preview.next_level, user_id, upgrade_id).run();
+    } else {
+      await c.env.DB.prepare(
+        'INSERT INTO user_upgrades (user_id, upgrade_id, level) VALUES (?, ?, ?)'
+      ).bind(user_id, upgrade_id, preview.next_level).run();
+    }
+
+    return c.json({
+      success: true,
+      upgrade_id,
+      current_level: preview.current_level,
+      next_level: preview.next_level,
+      total_cost: preview.total_cost,
+      wallet: { user_id, ...preview.wallet },
+      upgrade: { upgrade_id, level: preview.next_level },
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
+
+// ===== COSMETICS API =====
+// Get user's owned cosmetics
+app.get('/api/player/cosmetics', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const { results } = await c.env.DB.prepare(
+      'SELECT cosmetic_id, equipped FROM user_cosmetics WHERE user_id = ?'
+    ).bind(user_id).all();
+
+    return c.json({
+      user_id,
+      cosmetics: (results || []).map((cosmetic) => ({
+        cosmetic_id: cosmetic.cosmetic_id,
+        equipped: Boolean(cosmetic.equipped),
+      })),
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Purchase a cosmetic with persisted player wallet currency
+app.post('/api/cosmetics/purchase', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, cosmetic_id } = data;
+
+    if (!user_id || !cosmetic_id) {
+      return c.json({ error: 'user_id and cosmetic_id are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const wallet = await getPlayerWallet(c.env.DB, user_id);
+    const { results } = await c.env.DB.prepare(
+      'SELECT cosmetic_id FROM user_cosmetics WHERE user_id = ?'
+    ).bind(user_id).all();
+    const ownedCosmetics = (results || []).map((cosmetic) => cosmetic.cosmetic_id);
+    const preview = previewCosmeticPurchase({
+      wallet,
+      ownedCosmetics,
+      cosmeticId: cosmetic_id,
+    });
+
+    if (!preview.ok) {
+      return c.json({ error: preview.reason }, 400);
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE player_wallet
+       SET coins = ?, shards = ?, updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(preview.wallet.coins, preview.wallet.shards, user_id).run();
+
+    await c.env.DB.prepare(
+      `INSERT INTO user_cosmetics (user_id, cosmetic_id, equipped, created_at, updated_at)
+       VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+    ).bind(user_id, cosmetic_id, 0).run();
+
+    return c.json({
+      success: true,
+      cosmetic_id,
+      total_cost: preview.total_cost,
+      currency: preview.currency,
+      wallet: { user_id, ...preview.wallet },
+      cosmetic: { cosmetic_id, equipped: false },
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Equip a persisted owned cosmetic, clearing other cosmetics in the same slot
+app.post('/api/cosmetics/equip', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, cosmetic_id } = data;
+
+    if (!user_id || !cosmetic_id) {
+      return c.json({ error: 'user_id and cosmetic_id are required' }, 400);
+    }
+
+    const cosmetic = getCosmetic(cosmetic_id);
+    if (!cosmetic) {
+      return c.json({ error: 'Unknown cosmetic.' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const { results } = await c.env.DB.prepare(
+      'SELECT cosmetic_id, equipped FROM user_cosmetics WHERE user_id = ?'
+    ).bind(user_id).all();
+    const ownedCosmetics = results || [];
+    const isOwned = ownedCosmetics.some((owned) => owned.cosmetic_id === cosmetic_id);
+
+    if (!isOwned) {
+      return c.json({ error: 'Cosmetic is not owned.' }, 400);
+    }
+
+    const sameSlotIds = Object.values(COSMETIC_CATALOG)
+      .filter((catalogCosmetic) => catalogCosmetic.slot === cosmetic.slot)
+      .map((catalogCosmetic) => catalogCosmetic.cosmetic_id);
+
+    for (const sameSlotId of sameSlotIds) {
+      await c.env.DB.prepare(
+        `UPDATE user_cosmetics
+         SET equipped = 0, updated_at = datetime('now')
+         WHERE user_id = ? AND cosmetic_id = ?`
+      ).bind(user_id, sameSlotId).run();
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE user_cosmetics
+       SET equipped = 1, updated_at = datetime('now')
+       WHERE user_id = ? AND cosmetic_id = ?`
+    ).bind(user_id, cosmetic_id).run();
+
+    return c.json({
+      success: true,
+      cosmetic_id,
+      slot: cosmetic.slot,
+      cosmetic: { cosmetic_id, equipped: true },
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
+
+// ===== ACHIEVEMENTS API =====
+// Get current achievement milestones for the player
+app.get('/api/player/achievements', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const caughtCount = await getCollectionAchievementProgress(c.env.DB, user_id);
+    const claimedRows = await listClaimedAchievements(c.env.DB, user_id);
+    const claimedIds = new Set(claimedRows.map((achievement) => achievement.achievement_id));
+    const claimableIds = new Set(evaluateCollectionAchievements({
+      caughtCount,
+      claimedAchievementIds: [...claimedIds],
+    }).map((achievement) => achievement.achievement_id));
+
+    return c.json({
+      user_id,
+      progress: { collection: caughtCount },
+      achievements: Object.values(ACHIEVEMENT_CATALOG).map((achievement) => ({
+        ...achievement,
+        progress: caughtCount,
+        claimed: claimedIds.has(achievement.achievement_id),
+        claimable: claimableIds.has(achievement.achievement_id),
+      })),
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Claim a reached achievement once and persist wallet rewards
+app.post('/api/achievements/claim', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, achievement_id } = data;
+
+    if (!user_id || !achievement_id) {
+      return c.json({ error: 'user_id and achievement_id are required' }, 400);
+    }
+
+    const achievement = getAchievement(achievement_id);
+    if (!achievement) {
+      return c.json({ error: 'Unknown achievement.' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const claimedRows = await listClaimedAchievements(c.env.DB, user_id);
+    const claimedIds = claimedRows.map((claimed) => claimed.achievement_id);
+
+    if (claimedIds.includes(achievement_id)) {
+      return c.json({ error: 'Achievement already claimed.' }, 400);
+    }
+
+    const caughtCount = await getCollectionAchievementProgress(c.env.DB, user_id);
+    const claimable = evaluateCollectionAchievements({
+      caughtCount,
+      claimedAchievementIds: claimedIds,
+    }).some((candidate) => candidate.achievement_id === achievement_id);
+
+    if (!claimable) {
+      return c.json({ error: 'Achievement is not complete yet.' }, 400);
+    }
+
+    const wallet = await addWalletReward(c.env.DB, user_id, achievement.reward);
+
+    await c.env.DB.prepare(
+      `INSERT INTO user_achievements (user_id, achievement_id, claimed_at)
+       VALUES (?, ?, datetime('now'))`
+    ).bind(user_id, achievement_id).run();
+
+    return c.json({
+      success: true,
+      achievement_id,
+      reward: achievement.reward,
+      wallet,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
 
 // ===== TEAM API - Cross-device persistence =====
 // Get user's battle team
@@ -567,6 +1217,10 @@ app.post('/api/team', async (c) => {
     selectQuery += ' ORDER BY position ASC';
     
     const { results } = await c.env.DB.prepare(selectQuery).bind(...selectParams).all();
+
+    if (user_id) {
+      await incrementDailyQuestsForEvent(c.env.DB, user_id, 'healTeam', 1);
+    }
     
     return c.json(results);
   } catch (error) {
@@ -678,7 +1332,11 @@ const listDailyQuests = async (c) => {
     ).bind(user_id, today).all();
 
     if (results.length === 0) {
-      for (const template of DAILY_QUEST_TEMPLATES) {
+      const trainerLevel = await getTrainerLevel(c.env.DB, user_id);
+      const bonusTaskSlots = await getDailyTaskSlotUpgradeLevel(c.env.DB, user_id);
+      const templates = getDailyQuestTemplatesForDate(trainerLevel, today, bonusTaskSlots);
+
+      for (const template of templates) {
         await c.env.DB.prepare(
           `INSERT INTO daily_quests (id, user_id, quest_date, template_key, title, description, target, progress, reward_xp, reward_item_id, reward_item_quantity)
            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
@@ -784,7 +1442,18 @@ const claimDailyQuest = async (c) => {
       'SELECT * FROM daily_quests WHERE id = ?'
     ).bind(id).all();
 
-    return c.json(updated[0]);
+    const today = updated[0].quest_date;
+    const { results: todaysQuests } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE user_id = ? AND quest_date = ? ORDER BY created_at ASC'
+    ).bind(user_id, today).all();
+    const dailyStreak = await applyDailyQuestStreakAfterClaim(
+      c.env.DB,
+      user_id,
+      todaysQuests,
+      today
+    );
+
+    return c.json({ ...updated[0], daily_streak: dailyStreak });
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
@@ -829,7 +1498,17 @@ const claimAllDailyQuests = async (c) => {
       `SELECT * FROM daily_quests WHERE id IN (${placeholders})`
     ).bind(...claimIds).all();
 
-    return c.json({ claimed: updated, claimedCount: updated.length });
+    const { results: todaysQuests } = await c.env.DB.prepare(
+      'SELECT * FROM daily_quests WHERE user_id = ? AND quest_date = ? ORDER BY created_at ASC'
+    ).bind(user_id, today).all();
+    const dailyStreak = await applyDailyQuestStreakAfterClaim(
+      c.env.DB,
+      user_id,
+      todaysQuests,
+      today
+    );
+
+    return c.json({ claimed: updated, claimedCount: updated.length, daily_streak: dailyStreak });
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }
@@ -934,6 +1613,8 @@ app.post('/api/tower/complete', async (c) => {
       'SELECT * FROM challenge_tower_progress WHERE user_id = ?'
     ).bind(user_id).all();
 
+    await incrementDailyQuestsForEvent(c.env.DB, user_id, 'towerFloorComplete', 1);
+
     const updatedProgress = updated[0];
     const isComplete = updatedProgress.current_floor > maxFloor;
     const currentFloorNumber = isComplete ? null : updatedProgress.current_floor;
@@ -989,6 +1670,41 @@ const buildLeaderboardEntries = async (db, leaderboardKey, limit) => {
       user_id: row.user_id,
       score: row.best_floor,
       detail: { best_floor: row.best_floor },
+    });
+  } else if (leaderboardKey === 'pvp') {
+    query = `
+      WITH pvp_participants AS (
+        SELECT player_user_id as user_id,
+               outcome as result
+        FROM pvp_matches
+        WHERE player_user_id IS NOT NULL
+        UNION ALL
+        SELECT opponent_user_id as user_id,
+               CASE
+                 WHEN outcome = 'win' THEN 'loss'
+                 WHEN outcome = 'loss' THEN 'win'
+                 ELSE outcome
+               END as result
+        FROM pvp_matches
+        WHERE opponent_user_id IS NOT NULL
+      )
+      SELECT user_id,
+             SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
+             SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
+             SUM(CASE WHEN result = 'draw' THEN 1 ELSE 0 END) as draws
+      FROM pvp_participants
+      GROUP BY user_id
+      ORDER BY wins DESC, draws DESC, losses ASC
+      LIMIT ?
+    `;
+    formatter = (row) => ({
+      user_id: row.user_id,
+      score: row.wins,
+      detail: {
+        wins: row.wins,
+        losses: row.losses,
+        draws: row.draws,
+      },
     });
   } else {
     query = `
@@ -1059,6 +1775,256 @@ app.get('/api/leaderboards', async (c) => {
   }
 });
 // ================================================
+
+// ===== CO-OP RAID API =====
+app.post('/api/coop-raids', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, team_power, level = 1 } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const teamPower = Number(team_power);
+    if (!Number.isFinite(teamPower) || teamPower <= 0) {
+      return c.json({ error: 'team_power must be a positive number' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const raid = await createCoopRaidRoom(c.env.DB, {
+      raidId: uuidv4(),
+      hostUserId: user_id,
+      teamPower,
+      boss: buildCoopRaidBoss({ level: Number(level) || 1 }),
+    });
+
+    return c.json(raid, 201);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/coop-raids/:id/join', async (c) => {
+  try {
+    const raidId = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id, team_power } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const teamPower = Number(team_power);
+    if (!Number.isFinite(teamPower) || teamPower <= 0) {
+      return c.json({ error: 'team_power must be a positive number' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const raid = await joinCoopRaidRoom(c.env.DB, {
+      raidId,
+      userId: user_id,
+      teamPower,
+    });
+
+    if (!raid) {
+      return c.json({ error: 'Co-op raid not found' }, 404);
+    }
+
+    return c.json(raid);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/coop-raids/:id/attack', async (c) => {
+  try {
+    const raidId = c.req.param('id');
+    const data = await c.req.json();
+    const { user_id, damage_dealt } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const damageDealt = Number(damage_dealt);
+    if (!Number.isFinite(damageDealt) || damageDealt <= 0) {
+      return c.json({ error: 'damage_dealt must be a positive number' }, 400);
+    }
+
+    const room = await getCoopRaidRoom(c.env.DB, raidId);
+    if (!room) {
+      return c.json({ error: 'Co-op raid not found' }, 404);
+    }
+    if (room.raid.status === 'complete') {
+      return c.json({ error: 'Co-op raid is already complete' }, 409);
+    }
+    if (!room.ready) {
+      return c.json({ error: 'Co-op raid needs at least two ready trainers before attacking' }, 409);
+    }
+    if (!room.participants.some((participant) => participant.user_id === user_id)) {
+      return c.json({ error: 'Only raid participants can attack this co-op raid' }, 403);
+    }
+
+    const attempt = await recordCoopRaidAttempt(c.env.DB, {
+      raidId,
+      damageDealt,
+    });
+
+    const rewards = attempt?.attempt?.rewards || [];
+    const progress = [];
+    const wallets = [];
+
+    if (attempt?.attempt?.status === 'complete') {
+      for (const reward of rewards) {
+        const rewardProgress = await grantPlayerXpReward(c.env.DB, reward.user_id, reward.xp);
+        const rewardWallet = await grantPlayerCoins(c.env.DB, reward.user_id, reward.coins);
+
+        if (rewardProgress) {
+          progress.push({ user_id: reward.user_id, ...rewardProgress });
+        }
+        if (rewardWallet) {
+          wallets.push({ user_id: reward.user_id, ...rewardWallet });
+        }
+      }
+    }
+
+    return c.json({
+      ...attempt,
+      rewards,
+      progress,
+      wallets,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ========================
+
+// ===== PVP API =====
+app.post('/api/pvp/queue', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, team_power } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const teamPower = Number(team_power);
+    if (!Number.isFinite(teamPower) || teamPower <= 0) {
+      return c.json({ error: 'team_power must be a positive number' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    await upsertPvpQueueEntry(c.env.DB, user_id, teamPower);
+
+    const match = await findQueuedPvpOpponent(c.env.DB, user_id, teamPower);
+    if (match.matched) {
+      const opponentTeam = await getPvpOpponentTeam(c.env.DB, match.opponent.user_id);
+      await leavePvpQueue(c.env.DB, user_id);
+      await leavePvpQueue(c.env.DB, match.opponent.user_id);
+      return c.json({
+        queued: false,
+        ...match,
+        opponent: {
+          ...match.opponent,
+          team: opponentTeam,
+        },
+      });
+    }
+
+    return c.json({
+      queued: true,
+      matched: false,
+      playerPower: teamPower,
+      opponent: null,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.delete('/api/pvp/queue', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await leavePvpQueue(c.env.DB, user_id);
+    return c.json({ queued: false });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/pvp/matches', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    const limit = Number(c.req.query('limit') || 5);
+    const matches = await listPvpMatchHistory(c.env.DB, user_id, limit);
+    return c.json({ matches });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/pvp/matches', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, opponent_user_id, player_team = [], opponent_team = [] } = data;
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    if (!opponent_user_id) {
+      return c.json({ error: 'opponent_user_id is required' }, 400);
+    }
+
+    const result = resolvePvpBattleResult({
+      playerTeam: player_team,
+      opponentTeam: opponent_team,
+    });
+
+    if (result.status !== 'complete') {
+      return c.json({ error: 'PvP match is still in progress' }, 409);
+    }
+
+    const winnerUserId = result.winner === 'player'
+      ? user_id
+      : result.winner === 'opponent'
+        ? opponent_user_id
+        : null;
+
+    const match = await recordPvpMatchResult(c.env.DB, {
+      player_user_id: user_id,
+      opponent_user_id,
+      outcome: result.outcome,
+      winner_user_id: winnerUserId,
+      player_remaining_pokemon: result.playerRemainingPokemon,
+      opponent_remaining_pokemon: result.opponentRemainingPokemon,
+    });
+
+    const rewards = calculatePvpRewards(result.outcome);
+    const progress = await grantPlayerXpReward(c.env.DB, user_id, rewards.xp);
+    const wallet = await grantPlayerCoins(c.env.DB, user_id, rewards.coins);
+
+    return c.json({
+      match,
+      rewards,
+      progress,
+      wallet,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
 
 // ===== EVOLUTION API =====
 const getTrainerLevel = async (db, userId) => {
@@ -1223,6 +2189,8 @@ const evolvePokemon = async (c) => {
       updatedTeamCount += 1;
     }
 
+    await incrementDailyQuestsForEvent(c.env.DB, user_id, 'evolvePokemon', 1);
+
     return c.json({
       success: true,
       caught_id,
@@ -1247,6 +2215,44 @@ const evolvePokemon = async (c) => {
 app.get('/api/evolution/options', listEvolutionOptions);
 app.post('/api/evolution/evolve', evolvePokemon);
 // ================================================
+
+// ===== BOSS CLEAR PROGRESSION API =====
+app.get('/api/boss-clears', async (c) => {
+  try {
+    const user_id = c.req.query('user_id');
+
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const clears = await listBossClears(c.env.DB, user_id);
+    return c.json(clears);
+  } catch (error) {
+    if (error.message.includes('no such table')) {
+      return c.json([]);
+    }
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/api/boss-clears', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, boss_key, name } = data;
+
+    if (!user_id || !boss_key || !name) {
+      return c.json({ error: 'user_id, boss_key, and name are required' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const clear = await recordBossClear(c.env.DB, user_id, data);
+    return c.json(clear);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
 
 // ===== POKEMON CREATOR - AI GENERATION =====
 // Generate a Pokemon using AI
@@ -1480,6 +2486,67 @@ app.put('/api/items/:itemId', async (c) => {
     }
     
     return c.json({ success: true, item_id, quantity });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+// ====================
+
+// ===== KPI METRICS API =====
+app.post('/api/player/sessions', async (c) => {
+  try {
+    const data = await c.req.json();
+    const { user_id, started_at, ended_at } = data;
+
+    if (!user_id || !started_at || !ended_at) {
+      return c.json({ error: 'user_id, started_at, and ended_at are required' }, 400);
+    }
+
+    const startedAt = new Date(started_at).getTime();
+    const endedAt = new Date(ended_at).getTime();
+
+    if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt < startedAt) {
+      return c.json({ error: 'Session timestamps are invalid' }, 400);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const id = uuidv4();
+
+    await c.env.DB.prepare(
+      `INSERT INTO user_sessions (id, user_id, started_at, ended_at, created_at)
+       VALUES (?, ?, ?, ?, datetime('now'))`
+    ).bind(id, user_id, started_at, ended_at).run();
+
+    return c.json({
+      success: true,
+      id,
+      user_id,
+      started_at,
+      ended_at,
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/metrics/kpis', async (c) => {
+  try {
+    const now = c.req.query('now') || new Date().toISOString();
+
+    const [{ results: users }, { results: progressRows }, { results: bossClearRows }, { results: sessionRows }] = await Promise.all([
+      c.env.DB.prepare('SELECT id, created_at, last_active_at FROM users').bind().all(),
+      c.env.DB.prepare('SELECT user_id, level FROM player_progress WHERE user_id IS NOT NULL').bind().all(),
+      c.env.DB.prepare('SELECT user_id, boss_key FROM boss_clears').bind().all(),
+      c.env.DB.prepare('SELECT user_id, started_at, ended_at FROM user_sessions WHERE ended_at IS NOT NULL').bind().all(),
+    ]);
+
+    return c.json(buildKpiSnapshot({
+      users,
+      progressRows,
+      bossClearRows: (bossClearRows || []).map(mapBossClearToKpiRow),
+      sessionRows,
+      now,
+    }));
   } catch (error) {
     return c.json({ error: error.message }, 500);
   }

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+echo "Running release verification before push..."
+npm run verify:release
