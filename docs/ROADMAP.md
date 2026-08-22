@@ -477,6 +477,16 @@
 ### Next
 - Release Readiness Automation slice complete for now; keep this chain updated as new release guardrails are added.
 
+## Current Feature: Collection Mastery Tiers (Phase 4 Live Ops)
+### Implemented
+- ✅ Pure mastery tier rules with Bronze base tier and claimable Silver/Gold/Master milestones (`src/game/collectionMastery.js`)
+- ✅ Tier resolution reports current tier, next tier, and progress-to-next
+- ✅ Unclaimed reward evaluation pays one-time currency-only rewards (no combat power)
+- ✅ BDD coverage: 9 domain tests including fairness (no attack/power rewards) and immutability
+
+### Next
+- Persist claimed mastery tiers through D1/Worker APIs and surface tier status on Home/Achievements
+
 ## Notes
 - Keep implementation BDD-first: add a scenario/test for each new quest type / streak rule.
 
