@@ -49,17 +49,53 @@ function getBallPresentation(cosmeticId) {
   const cosmetic = getCosmetic(cosmeticId);
   if (cosmetic?.slot === 'ball_skin' && cosmetic.cosmetic_id === 'premier_ball_skin') {
     return {
-      icon: '⚪',
+      variant: 'premier',
       name: 'Premier Ball',
       buttonClass: 'pixel-btn-premier',
     };
   }
 
   return {
-    icon: '🔴',
+    variant: 'poke',
     name: 'Pokéball',
     buttonClass: 'pixel-btn-catch',
   };
+}
+
+// CSS-drawn Pokéball matching the pixel aesthetic — replaces emoji sprites
+// so the ball reads as part of the same art direction as the tileset.
+function PixelBall({ size = 24, variant = 'poke' }) {
+  const topColor = variant === 'premier' ? '#e5e7eb' : '#ef4444';
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block align-middle"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: `linear-gradient(to bottom, ${topColor} 0 44%, #1f2a44 44% 56%, #f8fafc 56% 100%)`,
+        border: `${Math.max(2, Math.round(size / 14))}px solid #1f2a44`,
+        boxShadow: 'inset -2px -3px 0 rgba(0,0,0,0.18)',
+        position: 'relative',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: size * 0.26,
+          height: size * 0.26,
+          borderRadius: '50%',
+          background: '#fff',
+          border: `${Math.max(2, Math.round(size / 16))}px solid #1f2a44`,
+        }}
+      />
+    </span>
+  );
 }
 
 // HP Bar component
@@ -613,16 +649,16 @@ export default function BattleScreen({
         {/* Catch animations */}
         {phase === PHASE.CATCH_THROW && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
-            <div className="text-8xl" style={{ animation: 'throw-ball 1s cubic-bezier(0.2, 0, 0.2, 1) forwards' }}>
-              {ballPresentation.icon}
+            <div style={{ animation: 'throw-ball 1s cubic-bezier(0.2, 0, 0.2, 1) forwards' }}>
+              <PixelBall size={72} variant={ballPresentation.variant} />
             </div>
           </div>
         )}
 
         {phase === PHASE.CATCH_WOBBLE && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
-            <div className="text-8xl mb-4" style={{ animation: 'wobble 0.6s ease-in-out infinite' }}>
-              {ballPresentation.icon}
+            <div style={{ animation: 'wobble 0.6s ease-in-out infinite' }}>
+              <PixelBall size={64} variant={ballPresentation.variant} />
             </div>
             <div className="flex gap-3">
               {[1, 2, 3].map(i => (
@@ -731,8 +767,8 @@ export default function BattleScreen({
               className="group relative"
             >
               <div className="hidden" />
-              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-4 py-4 rounded-none`}>
-                {ballPresentation.icon} Catch!
+              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-4 py-4 rounded-none flex items-center justify-center gap-2`}>
+                <PixelBall size={20} variant={ballPresentation.variant} /> Catch!
               </div>
             </button>
 
@@ -814,8 +850,8 @@ export default function BattleScreen({
               style={{ animation: 'float 2s ease-in-out infinite' }}
             >
               <div className="hidden" />
-              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-6 py-4 rounded-none`}>
-                {ballPresentation.icon} Throw {ballPresentation.name}! {ballPresentation.icon}
+              <div className={`relative pixel-btn ${ballPresentation.buttonClass} w-full text-sm md:text-base px-6 py-4 rounded-none flex items-center justify-center gap-2`}>
+                <PixelBall size={20} variant={ballPresentation.variant} /> Throw {ballPresentation.name}! <PixelBall size={20} variant={ballPresentation.variant} />
               </div>
             </button>
             <button

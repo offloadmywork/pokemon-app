@@ -119,7 +119,7 @@ describe('BattleScreen Component', () => {
         await vi.advanceTimersByTimeAsync(3000);
       });
 
-      fireEvent.click(screen.getByText('🔴 Catch!'));
+      fireEvent.click(screen.getByText('Catch!', { selector: '.pixel-btn' }));
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(6700);
@@ -150,9 +150,10 @@ describe('BattleScreen Component', () => {
         await vi.advanceTimersByTimeAsync(3000);
       });
 
-      expect(screen.getByText('⚪ Catch!')).toBeInTheDocument();
+      expect(screen.getByText('Catch!', { selector: '.pixel-btn-premier' })).toBeInTheDocument();
+      expect(document.querySelector('.pixel-btn-premier [aria-hidden="true"]')).not.toBeNull();
 
-      fireEvent.click(screen.getByText('⚪ Catch!'));
+      fireEvent.click(screen.getByText('Catch!', { selector: '.pixel-btn-premier' }));
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(100);
