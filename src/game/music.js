@@ -59,6 +59,7 @@ export function toggleMuted() {
 }
 
 // note = [frequencyHz or 0(rest), beats, waveform]; beats are quarter-note counts.
+// Themes layer lead + bass + drums; drum notes are ['kick'|'hat', beats].
 const MUSIC_THEMES = {
   route: {
     bpm: 96,
@@ -70,6 +71,18 @@ const MUSIC_THEMES = {
       [523, 2, 'triangle'], [587, 2, 'triangle'], [523, 3, 'triangle'],
       [294, 2, 'sine'], [330, 2, 'sine'], [349, 2, 'sine'],
       [392, 4, 'sine'],
+    ],
+    bass: [
+      [196, 2, 'sine'], [0, 1], [196, 1, 'sine'],
+      [165, 2, 'sine'], [0, 1], [165, 1, 'sine'],
+      [147, 2, 'sine'], [0, 1], [147, 1, 'sine'],
+      [196, 3, 'sine'], [0, 1],
+    ],
+    drums: [
+      ['hat', 1], ['hat', 1], ['hat', 1], ['hat', 1],
+      ['kick', 1], ['hat', 1], ['hat', 1], ['hat', 1],
+      ['hat', 1], ['hat', 1], ['hat', 1], ['hat', 1],
+      ['kick', 1], ['hat', 1], ['kick', 1], ['hat', 1],
     ],
   },
   battle: {
@@ -85,6 +98,18 @@ const MUSIC_THEMES = {
       [247, 0.5, 'square'], [247, 0.5, 'square'], [294, 0.5, 'square'], [247, 0.5, 'square'],
       [349, 0.5, 'square'], [294, 0.5, 'square'], [262, 1, 'square'],
     ],
+    bass: [
+      [110, 0.5, 'sawtooth'], [110, 0.5, 'sawtooth'], [110, 0.5, 'sawtooth'], [110, 0.5, 'sawtooth'],
+      [98, 0.5, 'sawtooth'], [98, 0.5, 'sawtooth'], [98, 0.5, 'sawtooth'], [98, 0.5, 'sawtooth'],
+      [131, 0.5, 'sawtooth'], [131, 0.5, 'sawtooth'], [131, 0.5, 'sawtooth'], [131, 0.5, 'sawtooth'],
+      [123, 0.5, 'sawtooth'], [123, 0.5, 'sawtooth'], [123, 0.5, 'sawtooth'], [123, 0.5, 'sawtooth'],
+    ],
+    drums: [
+      ['kick', 0.5], ['hat', 0.5], ['kick', 0.5], ['hat', 0.5],
+      ['kick', 0.5], ['hat', 0.5], ['kick', 0.5], ['kick', 0.5],
+      ['kick', 0.5], ['hat', 0.5], ['kick', 0.5], ['hat', 0.5],
+      ['kick', 0.5], ['kick', 0.5], ['hat', 0.5], ['kick', 0.5],
+    ],
   },
 };
 
@@ -94,6 +119,33 @@ let currentThemeName = null;
 let schedulerTimer = null;
 let nextNoteTime = 0;
 let loopIndex = 0;
+let bassIndex = 0;
+let bassNextTime = 0;
+let drumIndex = 0;
+let drumNextTime = 0;
+
+function scheduleDrum(ctx, kind, startAt, secondsPerBeat) {
+  const oscillator = ctx.createOscillator();
+  const amplifier = ctx.createGain();
+  const duration = kind === 'kick' ? 0.12 : 0.04;
+
+  oscillator.type = kind === 'kick' ? 'sine' : 'square';
+  if (kind === 'kick') {
+    oscillator.frequency.setValueAtTime(150, startAt);
+    oscillator.frequency.exponentialRampToValueAtTime(45, startAt + duration);
+  } else {
+    oscillator.frequency.setValueAtTime(6000, startAt);
+  }
+
+  const peak = (kind === 'kick' ? 0.12 : 0.03) * getVolume();
+  amplifier.gain.setValueAtTime(peak, startAt);
+  amplifier.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+
+  oscillator.connect(amplifier);
+  amplifier.connect(ctx.destination);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + duration + 0.02);
+}
 
 function scheduleNote(ctx, theme, note, startAt) {
   const [freq, beats, type] = note;
@@ -137,6 +189,28 @@ function schedulerTick() {
       nextNoteTime += Math.max(duration, 0.05);
       loopIndex += 1;
     }
+
+    // Bass layer.
+    if (bassNextTime < ctx.currentTime) bassNextTime = ctx.currentTime + 0.05;
+    const bassLoop = theme.bass || [];
+    while (bassLoop.length > 0 && bassNextTime < ctx.currentTime + 1.5) {
+      const note = bassLoop[bassIndex % bassLoop.length];
+      const duration = note[1] * secondsPerBeat;
+      if (note[0]) scheduleNote(ctx, { ...theme, gainScale: theme.gainScale * 1.4 }, note, bassNextTime);
+      bassNextTime += Math.max(duration, 0.05);
+      bassIndex += 1;
+    }
+
+    // Percussion layer.
+    const drums = theme.drums || [];
+    if (drumNextTime < ctx.currentTime) drumNextTime = ctx.currentTime + 0.05;
+    while (drums.length > 0 && drumNextTime < ctx.currentTime + 1.5) {
+      const [kind, beats] = drums[drumIndex % drums.length];
+      const duration = beats * secondsPerBeat;
+      scheduleDrum(ctx, kind, drumNextTime, secondsPerBeat);
+      drumNextTime += Math.max(duration, 0.05);
+      drumIndex += 1;
+    }
   } catch {
     // Never let music break gameplay.
     stopMusic();
@@ -152,6 +226,10 @@ export function startMusic(themeName) {
   currentThemeName = themeName;
   nextNoteTime = ctx.currentTime + 0.1;
   loopIndex = 0;
+  bassIndex = 0;
+  bassNextTime = nextNoteTime;
+  drumIndex = 0;
+  drumNextTime = nextNoteTime;
   schedulerTick();
   schedulerTimer = setInterval(schedulerTick, 400);
   return true;

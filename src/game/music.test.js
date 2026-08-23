@@ -93,6 +93,29 @@ describe('music playback state', () => {
     stopMusic();
   });
 
+// Scenario: Themes layer bass and percussion under the melody
+//   Given the built-in themes
+//   When music plays
+//   Then bass notes and drum hits are scheduled alongside the lead
+  it('defines bass and percussion layers for each theme', () => {
+    for (const theme of Object.values(MUSIC_THEMES)) {
+      expect(theme.bass.length).toBeGreaterThan(0);
+      expect(theme.drums.length).toBeGreaterThan(0);
+    }
+    const battleDrums = MUSIC_THEMES.battle.drums.flat().filter((v) => v === 'kick');
+    expect(battleDrums.length).toBeGreaterThan(0);
+  });
+
+  it('schedules bass oscillators while playing', () => {
+    fakeCtx = makeCtx();
+    const before = fakeCtx.createOscillator.mock.calls.length;
+    startMusic('battle');
+    const scheduled = fakeCtx.createOscillator.mock.calls.length - before;
+    // Melody + bass + percussion all schedule in the first tick window.
+    expect(scheduled).toBeGreaterThan(5);
+    stopMusic();
+  });
+
   it('is safe to stop when nothing is playing', () => {
     expect(() => stopMusic()).not.toThrow();
     expect(getMusicTheme()).toBeNull();
