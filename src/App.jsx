@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Home from "@/pages/Home";
 import Browse from "@/pages/Browse";
 import Collection from "@/pages/Collection";
@@ -22,6 +22,26 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [muted, setMuted] = useState(() => isMuted());
   const [volume, setVolumeState] = useState(() => getVolume());
+  const [showSoundHint, setShowSoundHint] = useState(
+    () => !isMuted() && !localStorage.getItem('pokemo…ings')
+  );
+
+  // Browsers suspend audio until a first user gesture — tell the player once.
+  useEffect(() => {
+    if (!showSoundHint) return;
+    const dismiss = () => {
+      setShowSoundHint(false);
+      localStorage.setItem('pokemo…ings', JSON.stringify({ muted: false, volume: getVolume() }));
+      window.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('keydown', dismiss);
+    };
+    window.addEventListener('pointerdown', dismiss);
+    window.addEventListener('keydown', dismiss);
+    return () => {
+      window.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('keydown', dismiss);
+    };
+  }, [showSoundHint]);
 
   const navigate = (page) => {
     if (page === 'leaderboards' && !featureFlags.leaderboards) return;
@@ -49,6 +69,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      {showSoundHint && (
+        <div
+          role="status"
+          className="fixed top-16 left-1/2 z-[60] -translate-x-1/2 rounded-full border-2 border-[#1f2a44] bg-[#fff7d6] px-4 py-2 text-xs font-black text-[#4f3514] shadow-[0_3px_0_#1f2a44]"
+        >
+          🔊 Tap anywhere to enable sound & music
+        </div>
+      )}
       <div className="fixed top-3 right-3 z-[60] flex items-center gap-2 rounded-full border-2 border-[#1f2a44] bg-[#fff7d6]/95 px-3 py-1.5 shadow-[0_3px_0_#1f2a44]">
         <button
           type="button"

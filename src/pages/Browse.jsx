@@ -518,6 +518,13 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     });
     setPokemon(found);
     setBattleTeam(team);
+    // Surface off-rarity fallbacks: the server rolled one rarity but the
+    // roster bucket was empty and a fallback pick was delivered instead.
+    if (found.rolled_rarity && found.rarity !== found.rolled_rarity) {
+      setHealMessage(`Rarity fallback: no ${found.rolled_rarity} available`);
+      setShowHeal(true);
+      setTimeout(() => { setShowHeal(false); setHealMessage(''); }, 2000);
+    }
     setEncounterPhase('battle');
   }, [fetchRandomPokemon]);
 
