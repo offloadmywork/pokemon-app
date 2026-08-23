@@ -48,6 +48,18 @@ export function isMuted() {
   return loadSettings().muted;
 }
 
+export function hasSoundHintBeenSeen() {
+  try {
+    return Boolean(JSON.parse(localStorage.getItem(SETTINGS_KEY))?.soundHintSeen);
+  } catch {
+    return false;
+  }
+}
+
+export function markSoundHintSeen() {
+  saveSettings({ ...loadSettings(), soundHintSeen: true });
+}
+
 export function setMuted(muted) {
   saveSettings({ ...loadSettings(), muted: Boolean(muted) });
 }
@@ -117,6 +129,9 @@ export { MUSIC_THEMES };
 
 let currentThemeName = null;
 let schedulerTimer = null;
+// All music routes through this gain node so mute flips silence
+// already-scheduled notes instantly (WebAudio schedules ~1.5s ahead).
+let musicBus = null;
 let nextNoteTime = 0;
 let loopIndex = 0;
 let bassIndex = 0;
@@ -142,7 +157,7 @@ function scheduleDrum(ctx, kind, startAt, secondsPerBeat) {
   amplifier.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
 
   oscillator.connect(amplifier);
-  amplifier.connect(ctx.destination);
+  amplifier.connect(musicBus || ctx.destination);
   oscillator.start(startAt);
   oscillator.stop(startAt + duration + 0.02);
 }
@@ -164,7 +179,7 @@ function scheduleNote(ctx, theme, note, startAt) {
   amplifier.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
 
   oscillator.connect(amplifier);
-  amplifier.connect(ctx.destination);
+  amplifier.connect(musicBus || ctx.destination);
   oscillator.start(startAt);
   oscillator.stop(startAt + duration + 0.02);
 
@@ -174,11 +189,15 @@ function scheduleNote(ctx, theme, note, startAt) {
 function schedulerTick() {
   try {
     if (!currentThemeName) return;
-    if (isMuted()) return; // shared mute silences music too
     const ctx = getSharedContext();
     if (!ctx) { stopMusic(); return; }
     const theme = MUSIC_THEMES[currentThemeName];
     if (!theme) { stopMusic(); return; }
+
+    // Mute gates the shared bus so notes already scheduled ahead are
+    // silenced instantly — and the playhead keeps advancing while muted,
+    // so unmuting never triggers a past-due catch-up burst.
+    if (musicBus) musicBus.gain.value = isMuted() ? 0 : 1;
 
     const secondsPerBeat = 60 / theme.bpm;
     // Schedule ~1.5s ahead of the playhead for smooth looping.
@@ -224,6 +243,9 @@ export function startMusic(themeName) {
   if (!ctx) return false;
 
   currentThemeName = themeName;
+  musicBus = ctx.createGain();
+  musicBus.gain.value = isMuted() ? 0 : 1;
+  musicBus.connect(ctx.destination);
   nextNoteTime = ctx.currentTime + 0.1;
   loopIndex = 0;
   bassIndex = 0;
@@ -240,6 +262,10 @@ export function stopMusic() {
   if (schedulerTimer) {
     clearInterval(schedulerTimer);
     schedulerTimer = null;
+  }
+  if (musicBus) {
+    try { musicBus.disconnect(); } catch { /* already gone */ }
+    musicBus = null;
   }
 }
 

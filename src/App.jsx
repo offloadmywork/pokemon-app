@@ -8,7 +8,7 @@ import { featureFlags } from "@/config/featureFlags";
 import { pokemonAPI } from "@/api/client";
 import { Home as HomeIcon, Map, Shield, Star, Trophy, Volume2, VolumeX } from "lucide-react";
 import { isMuted, setMuted as setMutedState, toggleMuted, playSfx } from "@/game/audio";
-import { getVolume, setVolume } from "@/game/music";
+import { getVolume, setVolume, hasSoundHintBeenSeen, markSoundHintSeen } from "@/game/music";
 
 const primaryTabs = [
   { key: 'home', label: 'Home', icon: HomeIcon },
@@ -22,16 +22,14 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [muted, setMuted] = useState(() => isMuted());
   const [volume, setVolumeState] = useState(() => getVolume());
-  const [showSoundHint, setShowSoundHint] = useState(
-    () => !isMuted() && !localStorage.getItem('pokemo…ings')
-  );
+  const [showSoundHint, setShowSoundHint] = useState(() => !isMuted() && !hasSoundHintBeenSeen());
 
   // Browsers suspend audio until a first user gesture — tell the player once.
   useEffect(() => {
     if (!showSoundHint) return;
     const dismiss = () => {
       setShowSoundHint(false);
-      localStorage.setItem('pokemo…ings', JSON.stringify({ muted: false, volume: getVolume() }));
+      markSoundHintSeen();
       window.removeEventListener('pointerdown', dismiss);
       window.removeEventListener('keydown', dismiss);
     };
