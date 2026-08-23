@@ -13,13 +13,20 @@ export default function WeeklyMissionsPanel({ apiClient = pokemonAPI }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let disposed = false;
+
     (async () => {
       await viewModel.loadWeeklyMissions();
+      if (disposed) return;
       setMissions(viewModel.missions);
       setWeekKey(viewModel.weekKey);
       setIsLoading(viewModel.isLoading);
       setError(viewModel.error);
     })();
+
+    return () => {
+      disposed = true;
+    };
   }, [viewModel]);
 
   const refreshFromViewModel = () => {

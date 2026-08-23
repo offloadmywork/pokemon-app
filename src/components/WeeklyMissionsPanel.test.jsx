@@ -85,4 +85,25 @@ describe('WeeklyMissionsPanel', () => {
     expect(mockApiClient.claimAllWeeklyMissions).toHaveBeenCalled();
     expect(await screen.findByText(/Claimed \+200 XP/)).toBeInTheDocument();
   });
+
+  // Scenario: A trainer changes Home sections while weekly missions are loading
+  //   Given the panel has started its async load
+  //   When the panel unmounts before the request resolves
+  //   Then the completed request must not update React state after unmount
+  it('ignores an in-flight load after unmount', async () => {
+    mockApiClient.getWeeklyMissions.mockClear();
+    let resolveLoad;
+    mockApiClient.getWeeklyMissions.mockReturnValue(new Promise((resolve) => {
+      resolveLoad = resolve;
+    }));
+
+    const { unmount } = render(<WeeklyMissionsPanel apiClient={mockApiClient} />);
+    unmount();
+
+    await act(async () => {
+      resolveLoad(MISSIONS);
+    });
+
+    expect(mockApiClient.getWeeklyMissions).toHaveBeenCalledTimes(1);
+  });
 });
