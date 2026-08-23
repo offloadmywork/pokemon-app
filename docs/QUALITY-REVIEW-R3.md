@@ -40,8 +40,8 @@ All five fixes CONFIRMED with line-level evidence (music.js scheduler + Browse p
 
 # Round 4 Plan
 **Engineering (Sprite, no direction needed):**
-- [ ] E11.1 "Tap to enable sound" affordance for autoplay policy
-- [ ] E11.2 Surface off-rarity fallback feedback using rolled_rarity
+- [x] E11.1 "Tap to enable sound" affordance for autoplay policy
+- [x] E11.2 Surface off-rarity fallback feedback using rolled_rarity
 - [ ] E11.3 Layered music recipes (bass line + percussion layer)
 
 **Product direction needed from Netanel:**
