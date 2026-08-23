@@ -4,7 +4,6 @@
 // and the SFX mute flag. Music must never break gameplay.
 
 import { getSharedContext } from './audioContext.js';
-import { isMuted } from './audio.js';
 
 const SETTINGS_KEY = 'pokemon-audio-settings';
 
@@ -13,7 +12,9 @@ function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { muted: false, volume: 1 };
     const parsed = JSON.parse(raw);
+    // Preserve sibling fields (soundHintSeen) owned by other modules sharing this key.
     return {
+      ...parsed,
       muted: Boolean(parsed?.muted),
       volume: clampVolume(parsed?.volume),
     };

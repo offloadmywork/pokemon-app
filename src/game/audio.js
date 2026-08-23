@@ -27,7 +27,8 @@ function loadSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { muted: false };
     const parsed = JSON.parse(raw);
-    return { muted: Boolean(parsed?.muted) };
+    // Preserve sibling fields (volume, soundHintSeen) owned by the music module.
+    return { ...parsed, muted: Boolean(parsed?.muted) };
   } catch {
     return { muted: false };
   }
@@ -46,7 +47,16 @@ export function isMuted() {
 }
 
 export function setMuted(muted) {
-  saveSettings({ muted: Boolean(muted) });
+  // Merge with stored settings so SFX mute never clobbers music volume
+  // or the sound-hint flag sharing this key.
+  let existing = {};
+  try {
+    existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (typeof existing !== 'object' || existing === null) existing = {};
+  } catch {
+    existing = {};
+  }
+  saveSettings({ ...existing, muted: Boolean(muted) });
 }
 
 export function toggleMuted() {

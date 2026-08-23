@@ -148,6 +148,26 @@ describe('sound hint flag', () => {
     localStorage.setItem('pokemon-audio-settings', 'garbage{');
     expect(hasSoundHintBeenSeen()).toBe(false);
   });
+
+  // Scenario: SFX and music share one settings key without clobbering each other
+  //   Given volume and hint flag are saved by the music module
+  //   When the SFX module flips mute
+  //   Then volume and hint flag survive untouched
+  it('SFX setMuted preserves music-owned settings fields', async () => {
+    const audio = await import('./audio.js');
+    setVolume(0.6);
+    markSoundHintSeen();
+    audio.setMuted(true);
+    expect(audio.isMuted()).toBe(true);
+    expect(getVolume()).toBe(0.6);
+    expect(hasSoundHintBeenSeen()).toBe(true);
+    setVolume(0.9);
+    expect(audio.isMuted()).toBe(true);
+    const raw = JSON.parse(localStorage.getItem('pokemon-audio-settings'));
+    expect(raw.muted).toBe(true);
+    expect(raw.volume).toBe(0.9);
+    expect(raw.soundHintSeen).toBe(true);
+  });
 });
 
 // Scenario: Muting mid-song silences already-scheduled notes instantly
