@@ -28,6 +28,7 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.registry.events.on('verdant-move-end', this.clearTouchDirection);
     this.markBossDefeated = () => { this.bossDefeated = true; };
     this.registry.events.on('verdant-boss-defeated', this.markBossDefeated);
+    if (this.registry.get('verdant-boss-defeated')) this.bossDefeated = true;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.registry.events.off('verdant-move-start', this.setTouchDirection);
       this.registry.events.off('verdant-move-end', this.clearTouchDirection);
@@ -88,6 +89,7 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.bossSprite = this.add.image(bossX * TILE + TILE / 2, bossY * TILE + TILE / 2, 'warden').setDepth(6);
     this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
+    if (this.bossDefeated) this.cacheSprite.setTexture('cache-open');
     this.add.text(bossX * TILE - 26, bossY * TILE - 22, 'Grove Warden', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#ffd9c2', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
   }
 

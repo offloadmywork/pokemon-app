@@ -8,6 +8,7 @@ import { loadTeam, saveTeam, healTeam, isTeamAlive } from "@/game/team";
 import { loadProgress, saveProgress } from "@/game/progress";
 import { incrementDailyQuestsForEvent } from "@/game/dailyQuestProgress";
 import { getBossClearKey, loadBossClears, recordBossClear } from "@/game/bossProgress";
+import { GROVE_WARDEN, getWardenBattleId, isWardenVictory } from "@/game/groveWarden";
 import { getActiveSeasonalEvent, selectSeasonalEncounterType } from "@/game/seasonalEvents";
 import { getItemById } from "@/game/items";
 import { playSfx } from "@/game/audio";
@@ -183,7 +184,7 @@ function saveActiveLure(lure) {
 // ═══════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════
-export default function Browse({ onNavigate, today = new Date().toISOString().slice(0, 10), worldEncounterToken = 0 }) {
+export default function Browse({ onNavigate, today = new Date().toISOString().slice(0, 10), worldEncounterToken = 0, worldBossToken = 0, onWardenDefeated }) {
   // Progress state
   const [xp, setXp] = useState(() => loadProgress().xp);
   const [level, setLevel] = useState(() => loadProgress().level);
@@ -538,6 +539,15 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     triggerEncounter();
   }, [worldEncounterToken, triggerEncounter]);
 
+  // The Grove Warden handoff reuses the established boss battle flow; a
+  // separate token keeps warden fights distinct from wild grass encounters.
+  const handledWorldBossRef = useRef(0);
+  useEffect(() => {
+    if (!worldBossToken || handledWorldBossRef.current === worldBossToken) return;
+    handledWorldBossRef.current = worldBossToken;
+    startBossEncounter(GROVE_WARDEN);
+  }, [worldBossToken, startBossEncounter]);
+
   // ═══════════════════════════════════════════
   // BATTLE END HANDLER
   // ═══════════════════════════════════════════
@@ -567,6 +577,9 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     if (result.battleWon) {
       incrementDailyQuestsForEvent(pokemonAPI, 'battleWin', 1);
     }
+
+    // A confirmed Warden victory unseals the Verdant Path reward cache.
+    if (isWardenVictory(result)) onWardenDefeated?.();
 
     let xpGained = result.xpGained || 0;
 

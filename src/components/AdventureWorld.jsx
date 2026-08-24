@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import VerdantPathScene from '@/engine/VerdantPathScene';
 
-export default function AdventureWorld({ onNavigate, onEncounter }) {
+export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated = false }) {
   const hostRef = useRef(null);
   const gameRef = useRef(null);
   const [encounterNotice, setEncounterNotice] = useState('Explore the glades. Wild traces stir in the tall grass.');
@@ -22,11 +22,15 @@ export default function AdventureWorld({ onNavigate, onEncounter }) {
     });
     const handleEncounter = () => {
       setEncounterNotice('A wild trace breaks through the grass — entering battle.');
-      onEncounter?.();
+      onEncounter?.('wild');
     };
-    const handleBoss = () => setEncounterNotice('The Grove Warden rises from the moonwell — defeat it to open the sealed cache!');
+    const handleBoss = () => {
+      setEncounterNotice('The Grove Warden rises from the moonwell — defeat it to open the sealed cache!');
+      onEncounter?.('boss');
+    };
     const handleReward = () => setEncounterNotice('The warden is defeated — the moonwell cache opens. Spoils claimed!');
     game.registry.events.on('verdant-encounter', handleEncounter);
+    game.registry.set('verdant-boss-defeated', Boolean(wardenDefeated));
     game.registry.events.on('verdant-boss', handleBoss);
     game.registry.events.on('verdant-reward', handleReward);
     gameRef.current = game;

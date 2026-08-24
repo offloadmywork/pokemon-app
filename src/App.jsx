@@ -24,6 +24,10 @@ const primaryTabs = [
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [worldEncounterToken, setWorldEncounterToken] = useState(0);
+  const [worldBossToken, setWorldBossToken] = useState(0);
+  const [wardenDefeated, setWardenDefeated] = useState(() => (
+    typeof localStorage !== 'undefined' && localStorage.getItem('verdant-warden-defeated') === '1'
+  ));
   const [muted, setMuted] = useState(() => isMuted());
   const [volume, setVolumeState] = useState(() => getVolume());
   const [showSoundHint, setShowSoundHint] = useState(() => !isMuted() && !hasSoundHintBeenSeen());
@@ -104,13 +108,25 @@ export default function App() {
         style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >
         {currentPage === 'home' && <Home onNavigate={navigate} />}
-        {currentPage === 'browse' && <Browse onNavigate={navigate} worldEncounterToken={worldEncounterToken} />}
+        {currentPage === 'browse' && (
+          <Browse
+            onNavigate={navigate}
+            worldEncounterToken={worldEncounterToken}
+            worldBossToken={worldBossToken}
+            onWardenDefeated={() => {
+              setWardenDefeated(true);
+              try { localStorage.setItem('verdant-warden-defeated', '1'); } catch { /* private mode */ }
+            }}
+          />
+        )}
         {currentPage === 'adventure' && (
           <Suspense fallback={<div className="min-h-screen bg-[#10263a] p-8 font-mono text-[#fff5ca]">Loading Verdant Path…</div>}>
             <AdventureWorld
               onNavigate={navigate}
-              onEncounter={() => {
-                setWorldEncounterToken((token) => token + 1);
+              wardenDefeated={wardenDefeated}
+              onEncounter={(kind) => {
+                if (kind === 'boss') setWorldBossToken((token) => token + 1);
+                else setWorldEncounterToken((token) => token + 1);
                 navigate('browse');
               }}
             />
