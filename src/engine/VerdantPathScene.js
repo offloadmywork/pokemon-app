@@ -58,6 +58,20 @@ export default class VerdantPathScene extends Phaser.Scene {
   }
 
   makeTextures() {
+    // Shared palette: one color vocabulary for every procedural texture so
+    // ground, characters, and landmarks read as a single authored world.
+    const PAL = {
+      meadow: 0x6d9d56, meadowDeep: 0x689752, meadowShade: 0x61914e,
+      grassDark: 0x426d38, grassBlade: 0x8fbd5f, grassShadow: 0x558246,
+      canopy: 0x33632f, leaf: 0x457a3c, leafLight: 0x5c9449, leafSun: 0x76a35e,
+      waterDeep: 0x315b83, waterMid: 0x35618c, waterLine: 0x8bc4d9, waterLineBright: 0xa9d6e8,
+      stone: 0x766b55, stoneLight: 0xb8a981, pebble: 0x93a08a, pebbleLight: 0xa9b39f, pebbleDark: 0x87947d,
+      wood: 0x4a3826, woodLid: 0x6b5335, bark: 0x5a4630, ink: 0x2b2117,
+      iron: 0x3a3f45, ironLight: 0x565d64,
+      gold: 0xd8b45a, goldSoft: 0xf4de8c, goldGlow: 0xffe08a, goldPale: 0xfff3c2,
+      wellStone: 0x3a3352, wellStoneA: 0x5a5178, wellStoneB: 0x6a6190, wellDeep: 0x1d2f4a,
+      spring: 0x8fe4ee, springPale: 0xd8f7fb, springRing: 0xb9eef5,
+    };
     const paint = (key, draw) => {
       if (this.textures.exists(key)) return;
       const g = this.add.graphics();
@@ -66,29 +80,29 @@ export default class VerdantPathScene extends Phaser.Scene {
       g.destroy();
     };
     paint('ground-0', (g) => {
-      g.fillStyle(0x6d9d56).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0x7fae64, 0.6);
+      g.fillStyle(PAL.meadow).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(PAL.leafSun, 0.6);
       g.fillTriangle(4, 26, 7, 18, 10, 26);
       g.fillTriangle(20, 29, 23, 21, 26, 29);
     });
     paint('ground-1', (g) => { // flower meadow
-      g.fillStyle(0x6d9d56).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0xf2e6b3).fillCircle(8, 20, 2); g.fillStyle(0xe8a94e).fillCircle(8, 20, 1);
+      g.fillStyle(PAL.meadow).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(PAL.goldPale).fillCircle(8, 20, 2); g.fillStyle(PAL.gold).fillCircle(8, 20, 1);
       g.fillStyle(0xd98ca6).fillCircle(22, 12, 2); g.fillStyle(0xfdf3f5).fillCircle(22, 12, 1);
     });
     paint('ground-2', (g) => { // pebbled clearing
-      g.fillStyle(0x689752).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0x93a08a).fillCircle(11, 22, 2); g.fillStyle(0xa9b39f).fillCircle(24, 15, 1.6); g.fillStyle(0x87947d).fillCircle(17, 27, 1.4);
+      g.fillStyle(PAL.meadowDeep).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(PAL.pebble).fillCircle(11, 22, 2); g.fillStyle(PAL.pebbleLight).fillCircle(24, 15, 1.6); g.fillStyle(PAL.pebbleDark).fillCircle(17, 27, 1.4);
     });
     paint('ground-3', (g) => { // shaded patch
-      g.fillStyle(0x61914e).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0x558246, 0.7).fillRect(0, 18, TILE, 14);
-      g.fillStyle(0x76a35e).fillTriangle(6, 16, 9, 10, 12, 16);
+      g.fillStyle(PAL.meadowShade).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(PAL.grassShadow, 0.7).fillRect(0, 18, TILE, 14);
+      g.fillStyle(PAL.leafSun).fillTriangle(6, 16, 9, 10, 12, 16);
     });
-    paint('grass', (g) => { g.fillStyle(0x426d38).fillRect(0, 0, TILE, TILE); g.lineStyle(2, 0x8fbd5f, 0.7); for (let i = 2; i < TILE; i += 7) g.lineBetween(i, 27, i + 3, 12 + (i % 8)); });
-    paint('water', (g) => { g.fillStyle(0x315b83).fillRect(0, 0, TILE, TILE); g.lineStyle(1, 0x8bc4d9, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
-    paint('water-1', (g) => { g.fillStyle(0x35618c).fillRect(0, 0, TILE, TILE); g.lineStyle(1, 0xa9d6e8, 0.7); for (let y = 7; y < TILE; y += 8) g.lineBetween(5, y, 14, y - 2).lineBetween(20, y + 1, 29, y - 1); });
-    paint('stone', (g) => { g.fillStyle(0x766b55).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, 0xb8a981, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
+    paint('grass', (g) => { g.fillStyle(PAL.grassDark).fillRect(0, 0, TILE, TILE); g.lineStyle(2, PAL.grassBlade, 0.7); for (let i = 2; i < TILE; i += 7) g.lineBetween(i, 27, i + 3, 12 + (i % 8)); });
+    paint('water', (g) => { g.fillStyle(PAL.waterDeep).fillRect(0, 0, TILE, TILE); g.lineStyle(1, PAL.waterLine, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
+    paint('water-1', (g) => { g.fillStyle(PAL.waterMid).fillRect(0, 0, TILE, TILE); g.lineStyle(1, PAL.waterLineBright, 0.7); for (let y = 7; y < TILE; y += 8) g.lineBetween(5, y, 14, y - 2).lineBetween(20, y + 1, 29, y - 1); });
+    paint('stone', (g) => { g.fillStyle(PAL.stone).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, PAL.stoneLight, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
     const hero = (dir) => (g) => {
       const back = dir === 'up';
       const side = dir === 'left' || dir === 'right';
@@ -115,62 +129,62 @@ export default class VerdantPathScene extends Phaser.Scene {
     paint('hero-right', hero('right'));
     paint('trailblazer', hero('down'));
     paint('tree', (g) => {
-      g.fillStyle(0x5a4630).fillRect(13, 22, 6, 9);
-      g.fillStyle(0x33632f).fillCircle(16, 13, 11);
-      g.fillStyle(0x457a3c).fillCircle(12, 10, 6); g.fillStyle(0x457a3c).fillCircle(21, 12, 5);
-      g.fillStyle(0x5c9449, 0.85).fillCircle(16, 7, 5);
+      g.fillStyle(PAL.bark).fillRect(13, 22, 6, 9);
+      g.fillStyle(PAL.canopy).fillCircle(16, 13, 11);
+      g.fillStyle(PAL.leaf).fillCircle(12, 10, 6); g.fillStyle(PAL.leaf).fillCircle(21, 12, 5);
+      g.fillStyle(PAL.leafLight, 0.85).fillCircle(16, 7, 5);
     });
     paint('moonwell', (g) => {
       // Stone-ringed pool: layered ring stones, deep water, soft inner glow.
-      g.fillStyle(0x3a3352).fillCircle(16, 16, 15);
+      g.fillStyle(PAL.wellStone).fillCircle(16, 16, 15);
       for (let i = 0; i < 8; i += 1) {
         const angle = (Math.PI * 2 * i) / 8;
-        g.fillStyle(i % 2 ? 0x5a5178 : 0x6a6190);
+        g.fillStyle(i % 2 ? PAL.wellStoneA : PAL.wellStoneB);
         g.fillCircle(16 + Math.cos(angle) * 12.5, 16 + Math.sin(angle) * 12.5, 3.4);
       }
-      g.fillStyle(0x1d2f4a).fillCircle(16, 16, 10.5);
-      g.fillStyle(0x8fe4ee, 0.85).fillCircle(16, 16, 7);
-      g.fillStyle(0xd8f7fb, 0.9).fillCircle(14, 14, 2.6);
-      g.lineStyle(1, 0xb9eef5, 0.7); g.strokeCircle(16, 16, 5); g.strokeCircle(16, 16, 8.5);
+      g.fillStyle(PAL.wellDeep).fillCircle(16, 16, 10.5);
+      g.fillStyle(PAL.spring, 0.85).fillCircle(16, 16, 7);
+      g.fillStyle(PAL.springPale, 0.9).fillCircle(14, 14, 2.6);
+      g.lineStyle(1, PAL.springRing, 0.7); g.strokeCircle(16, 16, 5); g.strokeCircle(16, 16, 8.5);
     });
     paint('warden', (g) => {
       // Moss guardian: bark-plated body, antler crown, glowing eyes, root feet.
-      g.fillStyle(0x243c26).fillRoundedRect(4, 7, 24, 20, 8); // body base
-      g.fillStyle(0x2c4a2e); // bark plates
+      g.fillStyle(PAL.canopy).fillRoundedRect(4, 7, 24, 20, 8); // body base
+      g.fillStyle(PAL.leaf); // bark plates
       g.fillRoundedRect(6, 9, 8, 7, 3); g.fillRoundedRect(18, 9, 8, 7, 3); g.fillRoundedRect(12, 17, 8, 8, 3);
       g.fillStyle(0x3d663a, 0.9); // moss patches
       g.fillCircle(8, 22, 2.4); g.fillCircle(23, 20, 2.8); g.fillCircle(13, 8, 2);
-      g.lineStyle(2, 0x5a4630); // antlers
+      g.lineStyle(2, PAL.bark); // antlers
       g.strokeTriangle(6, 8, 3, 1, 9, 5); g.strokeTriangle(26, 8, 29, 1, 23, 5);
-      g.fillStyle(0xffe08a).fillCircle(10, 13, 3).fillCircle(22, 13, 3); // eye glow
+      g.fillStyle(PAL.goldGlow).fillCircle(10, 13, 3).fillCircle(22, 13, 3); // eye glow
       g.fillStyle(0x1c301c).fillCircle(10, 13, 1.4).fillCircle(22, 13, 1.4);
       g.lineStyle(2, 0x1a2b1a, 0.8); g.strokeRoundedRect(4, 7, 24, 20, 8); // rim shadow
-      g.fillStyle(0x4a3826); // root feet
+      g.fillStyle(PAL.wood); // root feet
       g.fillTriangle(6, 25, 10, 25, 8, 30); g.fillTriangle(14, 25, 18, 25, 16, 31); g.fillTriangle(21, 25, 25, 25, 23, 30);
     });
     paint('cache-sealed', (g) => {
       // Iron-banded chest with a heavy lock plate.
-      g.fillStyle(0x4a3826).fillRoundedRect(4, 11, 24, 16, 3);
-      g.fillStyle(0x6b5335).fillRoundedRect(4, 5, 24, 8, 3); // domed lid
-      g.fillStyle(0x3a3f45); // iron bands
+      g.fillStyle(PAL.wood).fillRoundedRect(4, 11, 24, 16, 3);
+      g.fillStyle(PAL.woodLid).fillRoundedRect(4, 5, 24, 8, 3); // domed lid
+      g.fillStyle(PAL.iron); // iron bands
       g.fillRect(6, 5, 3, 22); g.fillRect(23, 5, 3, 22);
-      g.fillStyle(0x565d64).fillRect(6, 5, 3, 2); g.fillRect(23, 5, 3, 2); // band highlights
-      g.fillStyle(0xd8b45a).fillRoundedRect(13, 11, 6, 8, 1.5); // lock plate
-      g.fillStyle(0x2b2117).fillCircle(16, 14, 1.2); // keyhole
-      g.fillStyle(0xf0d488, 0.5).fillRect(5, 19, 22, 1); // plank sheen
-      g.lineStyle(2, 0x2b2117).strokeRoundedRect(4, 11, 24, 16, 3);
+      g.fillStyle(PAL.ironLight).fillRect(6, 5, 3, 2); g.fillRect(23, 5, 3, 2); // band highlights
+      g.fillStyle(PAL.gold).fillRoundedRect(13, 11, 6, 8, 1.5); // lock plate
+      g.fillStyle(PAL.ink).fillCircle(16, 14, 1.2); // keyhole
+      g.fillStyle(PAL.goldSoft, 0.5).fillRect(5, 19, 22, 1); // plank sheen
+      g.lineStyle(2, PAL.ink).strokeRoundedRect(4, 11, 24, 16, 3);
     });
     paint('cache-open', (g) => {
       // Open lid leaning back; treasure glow spilling out.
-      g.fillStyle(0x3a2c1c).fillRoundedRect(2, 3, 28, 7, 3); // tipped lid
-      g.fillStyle(0x6b5335).fillRect(4, 4, 24, 2);
-      g.fillStyle(0x4a3826).fillRoundedRect(4, 12, 24, 15, 3); // box
-      g.fillStyle(0x1d150c).fillRect(6, 13, 20, 6); // dark interior
-      g.fillStyle(0xf4de8c).fillCircle(11, 17, 2.2).fillCircle(16, 16, 2.6).fillCircle(21, 17, 2.2); // coins
+      g.fillStyle(PAL.wood).fillRoundedRect(2, 3, 28, 7, 3); // tipped lid
+      g.fillStyle(PAL.woodLid).fillRect(4, 4, 24, 2);
+      g.fillStyle(PAL.wood).fillRoundedRect(4, 12, 24, 15, 3); // box
+      g.fillStyle(PAL.ink).fillRect(6, 13, 20, 6); // dark interior
+      g.fillStyle(PAL.goldSoft).fillCircle(11, 17, 2.2).fillCircle(16, 16, 2.6).fillCircle(21, 17, 2.2); // coins
       g.fillStyle(0xc0e86f).fillCircle(13, 15, 1.6); g.fillStyle(0x9fd8ef).fillCircle(19, 15.5, 1.6); // gems
-      g.fillStyle(0xfff3c2, 0.55).fillCircle(16, 16, 5); // spill glow
-      g.fillStyle(0x3a3f45); g.fillRect(6, 12, 3, 15); g.fillRect(23, 12, 3, 15); // bands
-      g.lineStyle(2, 0x2b2117).strokeRoundedRect(4, 12, 24, 15, 3);
+      g.fillStyle(PAL.goldPale, 0.55).fillCircle(16, 16, 5); // spill glow
+      g.fillStyle(PAL.iron); g.fillRect(6, 12, 3, 15); g.fillRect(23, 12, 3, 15); // bands
+      g.lineStyle(2, PAL.ink).strokeRoundedRect(4, 12, 24, 15, 3);
     });
   }
 
