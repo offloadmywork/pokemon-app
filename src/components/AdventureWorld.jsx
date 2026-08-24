@@ -12,6 +12,9 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
   const onEncounterRef = useRef(onEncounter);
   useEffect(() => { onEncounterRef.current = onEncounter; }, [onEncounter]);
   const [encounterNotice, setEncounterNotice] = useState('Explore the glades. Wild traces stir in the tall grass.');
+  const [cacheOpenedLabel, setCacheOpenedLabel] = useState(() => {
+    try { return localStorage.getItem('verdant-cache-opened') === '1' ? 'The moonwell cache has been opened.' : 'The moonwell cache is sealed.'; } catch { return ''; }
+  });
   const [objective, setObjective] = useState('');
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
     };
     const handleReward = () => {
       setEncounterNotice('The moonwell cache opens — 2 Potions and a Super Potion claimed!');
+      setCacheOpenedLabel('The moonwell cache has been opened.');
       // The reward must be real, not cosmetic: bounded items via the
       // existing economy, granted exactly when the cache first opens.
       Promise.allSettled([
@@ -95,6 +99,12 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
         </div>
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#55755a] bg-[#1a3540] p-4 sm:flex-row sm:items-center sm:justify-between">
           <p role="status" className="text-sm font-semibold text-[#e8f0c7]">{encounterNotice}</p>
+          <p className="sr-only" aria-live="polite">
+            World state: {wardenDefeated
+              ? 'The Grove Warden is defeated.'
+              : 'Objective: defeat the Grove Warden at the moonwell arena.'}{' '}
+            {cacheOpenedLabel}
+          </p>
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             {objective && <p className="rounded-md border border-[#d7c071]/60 bg-[#0d2730] px-3 py-1 font-mono text-xs text-[#ffe9a8]" aria-label="Current objective">🎯 {objective}</p>}
             <button type="button" onClick={() => onNavigate('browse')} className="rounded-lg border-2 border-[#e2c477] bg-[#a9523d] px-4 py-2 text-sm font-black text-white shadow-[0_3px_0_#5a2923]">Open legacy battle map</button>

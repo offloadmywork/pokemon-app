@@ -22,6 +22,7 @@ export const SFX_NAMES = {
   ENCOUNTER: 'encounter',
   BOSS_ROAR: 'boss-roar',
   CACHE_OPEN: 'cache-open',
+  FOOTSTEP: 'footstep',
 };
 
 function loadSettings() {
@@ -117,6 +118,7 @@ const SFX_RECIPES = {
     { type: 'triangle', start: 523, end: 523, duration: 0.1, gain: 0.14 },
     { type: 'sine', start: 784, end: 1046, duration: 0.35, gain: 0.18 },
   ],
+  [SFX_NAMES.FOOTSTEP]: [{ type: 'triangle', start: 150, end: 95, duration: 0.05, gain: 0.045 }],
 };
 
 export function normalizeSfxName(name) {

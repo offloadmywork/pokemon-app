@@ -249,6 +249,12 @@ export default class VerdantPathScene extends Phaser.Scene {
     // hugging walls and coasting along the stream feels smooth, not sticky.
     const slide = getVerdantSlideVelocity(this.player.x, this.player.y, movement.x, movement.y);
     this.player.setVelocity(slide.x, slide.y);
+    // Soft footsteps while actually moving; throttled so it stays a rhythm,
+    // not a buzz. Silent for reduced-motion players who prefer calm worlds.
+    if (moving && !this.reducedMotion && time - (this.lastStepAt || 0) > 300) {
+      this.lastStepAt = time;
+      playSfx('footstep');
+    }
 
     const currentTileX = Math.floor(this.player.x / TILE);
     const currentTileY = Math.floor(this.player.y / TILE);
