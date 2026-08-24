@@ -529,6 +529,12 @@
 - ✅ Authored pacing now guides the run: a single zone objective (warden → cache → peace) is announced in the HUD, and an in-world guide arrow above the player points one cardinal step toward it — all driven by deterministic, unit-tested world rules.
 - ✅ First art pass: the meadow now uses four handcrafted ground variants (flower meadow, pebbled clearing, shaded patches, grass tufts) placed by a deterministic tile hash, plus authored tree canopies softening the world edge — no flat single-color tiles.
 - ✅ Character pass: the hero now has four directional sprites (front/back/side with readable details — eyes, rosy cheek, cloak trail, satchel on the back view), keeps the last facing when idle (unit-tested rule), and bobs gently while walking. Stream water shimmers between two authored frames.
+### Independent Judge R2 (2026-08-24): CONDITIONAL — top defects fixed same-day
+- ✅ Boss gate closes after victory (rule-tested); defeated warden hides and its tween stops.
+- ✅ Engine no longer remounts on App re-renders (ref-based callback bridge).
+- ✅ Cache rewards are real: bounded Potions/Super Potion granted via the items economy; `cacheOpened` persists.
+- ✅ Encounter rolls are time-based (identical odds on 60/120 Hz).
+- ✅ Camera shake/flash and warden tween respect `prefers-reduced-motion`.
 
 ### Next
-- Creature battle-sprite polish + desktop/mobile playthrough reviews; judge re-review of the slice.
+- Remaining judge findings: wall-sliding collision, focusable canvas host, in-world audio/haptics, warden/cache/moonwell art upgrade.
