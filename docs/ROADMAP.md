@@ -537,4 +537,4 @@
 - ✅ Camera shake/flash and warden tween respect `prefers-reduced-motion`.
 
 ### Next
-- Richer warden/cache/moonwell art; then desktop/mobile playthrough reviews and a fresh judge pass.
+- Desktop/mobile playthrough reviews, then a fresh independent judge pass to re-score the slice.
