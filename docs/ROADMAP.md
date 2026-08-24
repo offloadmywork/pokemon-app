@@ -541,9 +541,11 @@
 - ✅ `reducedMotion` now assigned before any tween is created — warden idle bob respects OS setting.
 - ✅ drawWorld init deduped (single objective announcement per state change).
 
-### Independent Judge R4 (2026-08-24): **PASS** — first PASS for the slice
-- Scores: feel 8, readability 8, pacing 8, art 7, a11y 7.5, technical 8.5.
-- Both R3 blockers verified fixed in source; 910 tests green; verdict: "coherent, fair, readable vertical slice" — remaining gaps are polish-tier, not correctness-tier.
+### Independent Judge R5 (2026-08-24): **FAIL** — caught two boot-crashing regressions introduced by the polish pass; both fixed same-day
+- ✅ TDZ crash: `moving` was referenced before declaration in update() — walk cycle threw on every tick.
+- ✅ `cacheSprite` creation was accidentally dropped in the drawWorld rewrite — scene crashed on boot via announceObjective(). Recreated at landmark position; objective read now uses the flag, not texture sniffing.
+- Root cause: no test boots the live Phaser scene. Queued: headless scene-boot smoke test (judge item 3) so "tests green" can never again mask an unbootable game.
+- Lesson recorded: every runtime-scene edit needs a real browser/preview check before commit — unit tests alone don't cover Phaser lifecycle.
 
 ### Next (judge-ranked)
 1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).
