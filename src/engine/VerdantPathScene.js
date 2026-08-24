@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantMovementIntent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantMovementIntent, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -7,6 +7,8 @@ export default class VerdantPathScene extends Phaser.Scene {
   constructor() {
     super('VerdantPath');
     this.lastEncounterAt = 0;
+    this.bossDefeated = false;
+    this.lastBossEventAt = 0;
   }
 
   create() {
@@ -24,9 +26,12 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.clearTouchDirection = () => { this.touchDirection = null; };
     this.registry.events.on('verdant-move-start', this.setTouchDirection);
     this.registry.events.on('verdant-move-end', this.clearTouchDirection);
+    this.markBossDefeated = () => { this.bossDefeated = true; };
+    this.registry.events.on('verdant-boss-defeated', this.markBossDefeated);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.registry.events.off('verdant-move-start', this.setTouchDirection);
       this.registry.events.off('verdant-move-end', this.clearTouchDirection);
+      this.registry.events.off('verdant-boss-defeated', this.markBossDefeated);
     });
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
@@ -51,6 +56,9 @@ export default class VerdantPathScene extends Phaser.Scene {
     paint('stone', (g) => { g.fillStyle(0x766b55).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, 0xb8a981, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
     paint('trailblazer', (g) => { g.fillStyle(0x20233a).fillCircle(16, 11, 8); g.fillStyle(0xf2c28e).fillCircle(16, 12, 6); g.fillStyle(0xd86847).fillTriangle(7, 8, 16, 1, 25, 8); g.fillStyle(0x304c84).fillRoundedRect(9, 18, 14, 12, 4); g.fillStyle(0xf6df9f).fillCircle(13, 12, 1).fillCircle(19, 12, 1); });
     paint('moonwell', (g) => { g.fillStyle(0x493e70).fillCircle(16, 16, 14); g.lineStyle(3, 0xb6a7e4).strokeCircle(16, 16, 12); g.fillStyle(0x8fe4ee).fillCircle(16, 16, 7); });
+    paint('warden', (g) => { g.fillStyle(0x2c4a2e).fillRoundedRect(3, 6, 26, 22, 8); g.fillStyle(0xd9ecb2).fillCircle(10, 13, 3).fillCircle(22, 13, 3); g.fillStyle(0x1c301c).fillCircle(10, 13, 1.4).fillCircle(22, 13, 1.4); g.lineStyle(3, 0xa4d07c); g.strokeRoundedRect(3, 6, 26, 22, 8); g.fillStyle(0x7ea75f); g.fillTriangle(8, 24, 16, 30, 24, 24); });
+    paint('cache-sealed', (g) => { g.fillStyle(0x5a4630).fillRoundedRect(4, 10, 24, 17, 4); g.fillStyle(0x7a603f).fillRoundedRect(4, 5, 24, 8, 3); g.fillStyle(0xd8b45a).fillRect(14, 10, 4, 8); g.lineStyle(2, 0x3a2c1c).strokeRoundedRect(4, 10, 24, 17, 4); });
+    paint('cache-open', (g) => { g.fillStyle(0x5a4630).fillRoundedRect(4, 14, 24, 13, 4); g.fillStyle(0x2b2117).fillRect(6, 15, 20, 5); g.fillStyle(0xf4de8c).fillCircle(12, 17, 2).fillCircle(20, 17, 2); g.fillStyle(0xd8b45a).fillRect(14, 14, 4, 6); });
   }
 
   drawWorld() {
@@ -66,10 +74,21 @@ export default class VerdantPathScene extends Phaser.Scene {
         if (edge && !stream) this.add.image(px, py, 'stone').setTint(0x5a6250).setDepth(2);
       }
     }
+    for (let x = VERDANT_PATH.bossArena.x; x < VERDANT_PATH.bossArena.x + VERDANT_PATH.bossArena.width; x += 1) {
+      for (let y = VERDANT_PATH.bossArena.y; y < VERDANT_PATH.bossArena.y + VERDANT_PATH.bossArena.height; y += 1) {
+        this.add.image(x * TILE + TILE / 2, y * TILE + TILE / 2, 'grass').setTint(0x8fae74).setDepth(0);
+      }
+    }
     for (const landmark of VERDANT_PATH.landmarks) {
       this.add.image(landmark.x * TILE + TILE / 2, landmark.y * TILE + TILE / 2, landmark.label === 'Moonwell' ? 'moonwell' : 'stone').setDepth(3);
       this.add.text(landmark.x * TILE - 17, landmark.y * TILE - 18, landmark.label, { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#fff5ca', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
     }
+    const bossX = VERDANT_PATH.bossArena.x + 2;
+    const bossY = VERDANT_PATH.bossArena.y + 1;
+    this.bossSprite = this.add.image(bossX * TILE + TILE / 2, bossY * TILE + TILE / 2, 'warden').setDepth(6);
+    this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
+    this.add.text(bossX * TILE - 26, bossY * TILE - 22, 'Grove Warden', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#ffd9c2', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
   }
 
   update(time) {
@@ -92,6 +111,19 @@ export default class VerdantPathScene extends Phaser.Scene {
       this.lastEncounterAt = time;
       this.cameras.main.flash(180, 230, 250, 208);
       this.registry.events.emit('verdant-encounter');
+    }
+
+    const tileEvent = getVerdantTileEvent(currentTileX, currentTileY, { bossDefeated: this.bossDefeated });
+    if (tileEvent && time - this.lastBossEventAt > 4000) {
+      this.lastBossEventAt = time;
+      if (tileEvent === 'boss') {
+        this.cameras.main.shake(220, 0.008);
+        this.registry.events.emit('verdant-boss');
+      } else if (tileEvent === 'reward') {
+        this.cacheSprite.setTexture('cache-open');
+        this.cameras.main.flash(240, 255, 236, 170);
+        this.registry.events.emit('verdant-reward');
+      }
     }
   }
 }

@@ -24,10 +24,16 @@ export default function AdventureWorld({ onNavigate, onEncounter }) {
       setEncounterNotice('A wild trace breaks through the grass — entering battle.');
       onEncounter?.();
     };
+    const handleBoss = () => setEncounterNotice('The Grove Warden rises from the moonwell — defeat it to open the sealed cache!');
+    const handleReward = () => setEncounterNotice('The warden is defeated — the moonwell cache opens. Spoils claimed!');
     game.registry.events.on('verdant-encounter', handleEncounter);
+    game.registry.events.on('verdant-boss', handleBoss);
+    game.registry.events.on('verdant-reward', handleReward);
     gameRef.current = game;
     return () => {
       game.registry.events.off('verdant-encounter', handleEncounter);
+      game.registry.events.off('verdant-boss', handleBoss);
+      game.registry.events.off('verdant-reward', handleReward);
       game.destroy(true);
       gameRef.current = null;
     };

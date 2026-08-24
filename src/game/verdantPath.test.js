@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantMovementIntent, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, getVerdantMovementIntent, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -21,5 +21,25 @@ describe('Verdant Path world rules', () => {
     expect(getVerdantMovementIntent({ right: true })).toEqual({ x: 1, y: 0 });
     expect(getVerdantMovementIntent({ touchDirection: 'up', right: true })).toEqual({ x: 0, y: -1 });
     expect(getVerdantMovementIntent({ touchDirection: null })).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('Verdant Path boss gate', () => {
+  it('places the warden arena and reward cache on walkable ground', () => {
+    const { bossArena, rewardCache } = VERDANT_PATH;
+    expect(isVerdantWalkable(bossArena.x + 1, bossArena.y + 1)).toBe(true);
+    expect(isVerdantWalkable(rewardCache.x, rewardCache.y)).toBe(true);
+  });
+
+  it('triggers the warden inside the arena and nowhere else', () => {
+    const { bossArena } = VERDANT_PATH;
+    expect(getVerdantTileEvent(bossArena.x + 1, bossArena.y + 1)).toBe('boss');
+    expect(getVerdantTileEvent(VERDANT_PATH.spawn.x, VERDANT_PATH.spawn.y)).toBe(null);
+  });
+
+  it('keeps the reward sealed until the warden falls', () => {
+    const { rewardCache } = VERDANT_PATH;
+    expect(getVerdantTileEvent(rewardCache.x, rewardCache.y, { bossDefeated: false })).toBe(null);
+    expect(getVerdantTileEvent(rewardCache.x, rewardCache.y, { bossDefeated: true })).toBe('reward');
   });
 });

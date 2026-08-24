@@ -13,7 +13,28 @@ export const VERDANT_PATH = Object.freeze({
     Object.freeze({ x: 24, y: 5, label: 'Moonwell' }),
     Object.freeze({ x: 25, y: 17, label: 'Grove Gate' }),
   ]),
+  // Authored endgame for the slice: the Grove Warden guards the moonwell
+  // clearing, and the reward cache behind it only opens once the warden falls.
+  bossArena: Object.freeze({ x: 22, y: 3, width: 5, height: 4 }),
+  rewardCache: Object.freeze({ x: 24, y: 2 }),
 });
+
+/**
+ * Resolves an authored tile event for the current position. The boss trigger
+ * fires anywhere inside the warden arena; the reward stays sealed until the
+ * caller confirms the boss is defeated.
+ */
+export function getVerdantTileEvent(x, y, { bossDefeated = false } = {}, zone = VERDANT_PATH) {
+  const { bossArena, rewardCache } = zone;
+  if (x >= rewardCache.x && x < rewardCache.x + 1 && y >= rewardCache.y && y < rewardCache.y + 1) {
+    return bossDefeated ? 'reward' : null;
+  }
+  if (
+    x >= bossArena.x && x < bossArena.x + bossArena.width &&
+    y >= bossArena.y && y < bossArena.y + bossArena.height
+  ) return 'boss';
+  return null;
+}
 
 export function isVerdantEncounterTile(x, y, zone = VERDANT_PATH) {
   return zone.encounterTiles.some((area) => (
