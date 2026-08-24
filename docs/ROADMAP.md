@@ -548,4 +548,7 @@
 ### Next (judge-ranked)
 1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).
 2. ~~World-state accessibility summary~~ ✅ shipped (sr-only live region mirroring boss/cache state).
-3. Palette/sprite unification pass across procedural tiles and characters.
+3. ~~Palette/sprite unification pass~~ ✅ shipped (single shared PAL vocabulary across all procedural textures).
+
+### Next milestone
+- Production art pipeline evaluation (real sprite assets replacing procedural textures), plus periodic desktop/mobile playthrough reviews.
