@@ -524,6 +524,7 @@
 - ✅ Performance audit now distinguishes the initial shell from the intentional deferred game-engine download, with individual and total package budgets.
 - ✅ A Verdant Path encounter now hands off exactly once into the existing server-rolled battle and capture flow, with BDD coverage for the complete transition.
 - ✅ A mobile Trail Compass supplies press-and-hold Phaser movement with labeled controls and keyboard activation; its deterministic input rule is unit-tested.
+- ✅ The Grove Warden now guards the moonwell: entering its arena triggers a boss encounter signal with camera shake, and the sealed reward cache opens only after a boss-defeat flag, with deterministic world-rule tests.
 
 ### Next
-- Replace primitive generated art with original production assets, add an authored start-to-boss-to-reward path, and run desktop/mobile playthrough reviews.
+- Wire a real boss battle victory to the `verdant-boss-defeated` flag so the reward cache is reachable in play, then add authored start-to-boss pacing and production art.
