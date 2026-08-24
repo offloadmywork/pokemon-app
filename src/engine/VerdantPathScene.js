@@ -80,25 +80,37 @@ export default class VerdantPathScene extends Phaser.Scene {
       g.generateTexture(key, TILE, TILE);
       g.destroy();
     };
+    // Subtle ground dithering: a few low-alpha speckles break up flat fills.
+    // Deterministic per seed so every repaint looks identical.
+    const dither = (g, seed) => {
+      g.fillStyle(PAL.grassShadow, 0.16);
+      for (let i = 0; i < 6; i += 1) {
+        g.fillRect(((seed * 37 + i * 13) % 29) + 1, ((seed * 53 + i * 7) % 29) + 1, 1.4, 1.4);
+      }
+    };
     paint('ground-0', (g) => {
       g.fillStyle(PAL.meadow).fillRect(0, 0, TILE, TILE);
       g.fillStyle(PAL.leafSun, 0.6);
       g.fillTriangle(4, 26, 7, 18, 10, 26);
       g.fillTriangle(20, 29, 23, 21, 26, 29);
+      dither(g, 1);
     });
     paint('ground-1', (g) => { // flower meadow
       g.fillStyle(PAL.meadow).fillRect(0, 0, TILE, TILE);
       g.fillStyle(PAL.goldPale).fillCircle(8, 20, 2); g.fillStyle(PAL.gold).fillCircle(8, 20, 1);
+      dither(g, 2);
       g.fillStyle(0xd98ca6).fillCircle(22, 12, 2); g.fillStyle(0xfdf3f5).fillCircle(22, 12, 1);
     });
     paint('ground-2', (g) => { // pebbled clearing
       g.fillStyle(PAL.meadowDeep).fillRect(0, 0, TILE, TILE);
       g.fillStyle(PAL.pebble).fillCircle(11, 22, 2); g.fillStyle(PAL.pebbleLight).fillCircle(24, 15, 1.6); g.fillStyle(PAL.pebbleDark).fillCircle(17, 27, 1.4);
+      dither(g, 3);
     });
     paint('ground-3', (g) => { // shaded patch
       g.fillStyle(PAL.meadowShade).fillRect(0, 0, TILE, TILE);
       g.fillStyle(PAL.grassShadow, 0.7).fillRect(0, 18, TILE, 14);
       g.fillStyle(PAL.leafSun).fillTriangle(6, 16, 9, 10, 12, 16);
+      dither(g, 4);
     });
     paint('grass', (g) => { g.fillStyle(PAL.grassDark).fillRect(0, 0, TILE, TILE); g.lineStyle(2, PAL.grassBlade, 0.7); for (let i = 2; i < TILE; i += 7) g.lineBetween(i, 27, i + 3, 12 + (i % 8)); });
     paint('water', (g) => { g.fillStyle(PAL.waterDeep).fillRect(0, 0, TILE, TILE); g.lineStyle(1, PAL.waterLine, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
