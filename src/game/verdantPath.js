@@ -80,6 +80,20 @@ export function getVerdantTileVariant(x, y) {
   return Math.abs((hash ^ (hash >> 16)) % 4);
 }
 
+/**
+ * Character facing: horizontal intent wins over vertical (classic top-down
+ * feel); an idle intent keeps the previous facing so the hero never snaps
+ * to a default direction when the player releases the keys.
+ */
+export function getVerdantFacing(intent, currentFacing = 'down') {
+  if (!intent) return currentFacing;
+  if ((intent.x || 0) < 0) return 'left';
+  if ((intent.x || 0) > 0) return 'right';
+  if ((intent.y || 0) < 0) return 'up';
+  if ((intent.y || 0) > 0) return 'down';
+  return currentFacing;
+}
+
 export function isVerdantWalkable(x, y, zone = VERDANT_PATH) {
   if (x < 1 || y < 1 || x >= zone.width - 1 || y >= zone.height - 1) return false;
   // A deliberately placed stream bank creates a readable route choice.

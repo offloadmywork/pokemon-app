@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -75,5 +75,15 @@ describe('Verdant Path art variation rules', () => {
         expect(variant).toBeLessThan(4);
       }
     }
+  });
+});
+
+describe('Verdant Path character facing rules', () => {
+  it('faces the direction of travel and keeps the last facing when idle', () => {
+    expect(getVerdantFacing({ x: 1, y: 0 }, 'up')).toBe('right');
+    expect(getVerdantFacing({ x: -1, y: 1 }, 'up')).toBe('left');
+    expect(getVerdantFacing({ x: 0, y: -1 }, 'left')).toBe('up');
+    expect(getVerdantFacing({ x: 0, y: 0 }, 'north-by-northwest')).toBe('north-by-northwest');
+    expect(getVerdantFacing({}, 'down')).toBe('down');
   });
 });

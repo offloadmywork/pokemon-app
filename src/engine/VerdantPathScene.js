@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -16,8 +16,11 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#10263a');
     this.drawWorld();
 
-    this.player = this.physics.add.sprite(spawn.x * TILE + TILE / 2, spawn.y * TILE + TILE / 2, 'trailblazer');
+    this.player = this.physics.add.sprite(spawn.x * TILE + TILE / 2, spawn.y * TILE + TILE / 2, 'hero-down');
     this.player.setCollideWorldBounds(true).setDepth(5).setScale(1.1);
+    this.facing = 'down';
+    // Animated water: collect stream tiles and swap frames on a shared clock.
+    this.waterTiles = [];
     this.physics.world.setBounds(TILE, TILE, (MAP_WIDTH - 2) * TILE, (MAP_HEIGHT - 2) * TILE);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
@@ -73,8 +76,33 @@ export default class VerdantPathScene extends Phaser.Scene {
     });
     paint('grass', (g) => { g.fillStyle(0x426d38).fillRect(0, 0, TILE, TILE); g.lineStyle(2, 0x8fbd5f, 0.7); for (let i = 2; i < TILE; i += 7) g.lineBetween(i, 27, i + 3, 12 + (i % 8)); });
     paint('water', (g) => { g.fillStyle(0x315b83).fillRect(0, 0, TILE, TILE); g.lineStyle(1, 0x8bc4d9, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
+    paint('water-1', (g) => { g.fillStyle(0x35618c).fillRect(0, 0, TILE, TILE); g.lineStyle(1, 0xa9d6e8, 0.7); for (let y = 7; y < TILE; y += 8) g.lineBetween(5, y, 14, y - 2).lineBetween(20, y + 1, 29, y - 1); });
     paint('stone', (g) => { g.fillStyle(0x766b55).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, 0xb8a981, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
-    paint('trailblazer', (g) => { g.fillStyle(0x20233a).fillCircle(16, 11, 8); g.fillStyle(0xf2c28e).fillCircle(16, 12, 6); g.fillStyle(0xd86847).fillTriangle(7, 8, 16, 1, 25, 8); g.fillStyle(0x304c84).fillRoundedRect(9, 18, 14, 12, 4); g.fillStyle(0xf6df9f).fillCircle(13, 12, 1).fillCircle(19, 12, 1); });
+    const hero = (dir) => (g) => {
+      const back = dir === 'up';
+      const side = dir === 'left' || dir === 'right';
+      // Hair + head: eyes only on front/side views.
+      g.fillStyle(0x20233a).fillCircle(16, 11, 8);
+      g.fillStyle(0xf2c28e).fillCircle(16, 13, 6);
+      if (!back) {
+        g.fillStyle(0xf6df9f);
+        if (side) { g.fillCircle(dir === 'right' ? 19 : 13, 13, 1.4); } else { g.fillCircle(13, 13, 1.4).fillCircle(19, 13, 1.4); }
+      }
+      if (side && !back) { g.fillStyle(0xb3553e).fillCircle(dir === 'right' ? 20 : 12, 16, 1); } // rosy cheek
+      // Hood/cloak trail points opposite of travel for readability.
+      g.fillStyle(0xd86847);
+      if (dir === 'up') g.fillTriangle(7, 10, 16, 3, 25, 10);
+      else if (dir === 'down') g.fillTriangle(7, 14, 16, 21, 25, 14);
+      else g.fillTriangle(dir === 'right' ? 9 : 23, 8, dir === 'right' ? 15 : 17, 2, dir === 'right' ? 23 : 9, 8);
+      // Body + satchel on the back when facing up.
+      g.fillStyle(0x304c84).fillRoundedRect(9, 19, 14, 11, 4);
+      if (back) { g.fillStyle(0x8a6a3f).fillRoundedRect(12, 20, 8, 7, 2); }
+    };
+    paint('hero-down', hero('down'));
+    paint('hero-up', hero('up'));
+    paint('hero-left', hero('left'));
+    paint('hero-right', hero('right'));
+    paint('trailblazer', hero('down'));
     paint('tree', (g) => {
       g.fillStyle(0x5a4630).fillRect(13, 22, 6, 9);
       g.fillStyle(0x33632f).fillCircle(16, 13, 11);
@@ -97,7 +125,8 @@ export default class VerdantPathScene extends Phaser.Scene {
         const edge = !isVerdantWalkable(x, y);
         const variant = getVerdantTileVariant(x, y);
         const texture = bridge ? 'stone' : stream ? 'water' : isVerdantEncounterTile(x, y) ? 'grass' : `ground-${variant}`;
-        this.add.image(px, py, texture).setDepth(0);
+        const tileImage = this.add.image(px, py, texture).setDepth(0);
+        if (stream && !bridge) this.waterTiles.push(tileImage);
         if (edge && !stream) {
           // Border stones gain an authored canopy when the hash asks for one,
           // softening the world edge without blocking any walkable route.
@@ -144,6 +173,12 @@ export default class VerdantPathScene extends Phaser.Scene {
     const up = this.cursors.up.isDown || this.keys.W.isDown;
     const down = this.cursors.down.isDown || this.keys.S.isDown;
     const { x, y } = getVerdantMovementIntent({ left, right, up, down, touchDirection: this.touchDirection });
+    this.facing = getVerdantFacing({ x, y }, this.facing);
+    this.player.setTexture(`hero-${this.facing}`);
+    const moving = x !== 0 || y !== 0;
+    // Walk bob: a gentle squash-and-stretch while travelling reads as steps.
+    const bobScale = moving ? 1.1 + Math.sin(time / 90) * 0.04 : 1.1;
+    this.player.setScale(bobScale);
     const movement = new Phaser.Math.Vector2(x, y).normalize().scale(125);
     const nextX = this.player.x + movement.x * 0.02;
     const nextY = this.player.y + movement.y * 0.02;
@@ -154,6 +189,12 @@ export default class VerdantPathScene extends Phaser.Scene {
 
     const currentTileX = Math.floor(this.player.x / TILE);
     const currentTileY = Math.floor(this.player.y / TILE);
+
+    // Water shimmer: alternate the authored second frame every ~600ms.
+    const waterFrame = Math.floor(time / 600) % 2 === 0 ? 'water' : 'water-1';
+    for (const tile of this.waterTiles) {
+      if (tile.texture.key !== waterFrame) tile.setTexture(waterFrame);
+    }
     if (isVerdantEncounterTile(currentTileX, currentTileY) && movement.lengthSq() > 0 && time - this.lastEncounterAt > 5000 && Math.random() < 0.006) {
       this.lastEncounterAt = time;
       this.cameras.main.flash(180, 230, 250, 208);
