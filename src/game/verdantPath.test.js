@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -58,5 +58,22 @@ describe('Verdant Path authored pacing', () => {
     const cache = getVerdantObjective({ bossDefeated: true });
     expect(getVerdantGuidanceStep(cache.x + 1, cache.y, cache)).toBe('west');
     expect(getVerdantGuidanceStep(cache.x, cache.y - 1, cache)).toBe('south');
+  });
+});
+
+describe('Verdant Path art variation rules', () => {
+  it('assigns stable decorative variants per tile', () => {
+    expect(getVerdantTileVariant(3, 4)).toBe(getVerdantTileVariant(3, 4));
+    expect(getVerdantTileVariant(5, 9)).not.toBe(getVerdantTileVariant(6, 9));
+  });
+
+  it('keeps every variant inside the authored palette range', () => {
+    for (let y = 0; y < VERDANT_PATH.height; y += 3) {
+      for (let x = 0; x < VERDANT_PATH.width; x += 3) {
+        const variant = getVerdantTileVariant(x, y);
+        expect(variant).toBeGreaterThanOrEqual(0);
+        expect(variant).toBeLessThan(4);
+      }
+    }
   });
 });

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -51,11 +51,36 @@ export default class VerdantPathScene extends Phaser.Scene {
       g.generateTexture(key, TILE, TILE);
       g.destroy();
     };
-    paint('ground', (g) => { g.fillStyle(0x6d9d56).fillRect(0, 0, TILE, TILE); g.fillStyle(0x83ad63, 0.45); for (let i = 0; i < 7; i += 1) g.fillCircle((i * 11) % TILE, (i * 17) % TILE, 1); });
+    paint('ground-0', (g) => {
+      g.fillStyle(0x6d9d56).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(0x7fae64, 0.6);
+      g.fillTriangle(4, 26, 7, 18, 10, 26);
+      g.fillTriangle(20, 29, 23, 21, 26, 29);
+    });
+    paint('ground-1', (g) => { // flower meadow
+      g.fillStyle(0x6d9d56).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(0xf2e6b3).fillCircle(8, 20, 2); g.fillStyle(0xe8a94e).fillCircle(8, 20, 1);
+      g.fillStyle(0xd98ca6).fillCircle(22, 12, 2); g.fillStyle(0xfdf3f5).fillCircle(22, 12, 1);
+    });
+    paint('ground-2', (g) => { // pebbled clearing
+      g.fillStyle(0x689752).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(0x93a08a).fillCircle(11, 22, 2); g.fillStyle(0xa9b39f).fillCircle(24, 15, 1.6); g.fillStyle(0x87947d).fillCircle(17, 27, 1.4);
+    });
+    paint('ground-3', (g) => { // shaded patch
+      g.fillStyle(0x61914e).fillRect(0, 0, TILE, TILE);
+      g.fillStyle(0x558246, 0.7).fillRect(0, 18, TILE, 14);
+      g.fillStyle(0x76a35e).fillTriangle(6, 16, 9, 10, 12, 16);
+    });
     paint('grass', (g) => { g.fillStyle(0x426d38).fillRect(0, 0, TILE, TILE); g.lineStyle(2, 0x8fbd5f, 0.7); for (let i = 2; i < TILE; i += 7) g.lineBetween(i, 27, i + 3, 12 + (i % 8)); });
     paint('water', (g) => { g.fillStyle(0x315b83).fillRect(0, 0, TILE, TILE); g.lineStyle(1, 0x8bc4d9, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
     paint('stone', (g) => { g.fillStyle(0x766b55).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, 0xb8a981, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
     paint('trailblazer', (g) => { g.fillStyle(0x20233a).fillCircle(16, 11, 8); g.fillStyle(0xf2c28e).fillCircle(16, 12, 6); g.fillStyle(0xd86847).fillTriangle(7, 8, 16, 1, 25, 8); g.fillStyle(0x304c84).fillRoundedRect(9, 18, 14, 12, 4); g.fillStyle(0xf6df9f).fillCircle(13, 12, 1).fillCircle(19, 12, 1); });
+    paint('tree', (g) => {
+      g.fillStyle(0x5a4630).fillRect(13, 22, 6, 9);
+      g.fillStyle(0x33632f).fillCircle(16, 13, 11);
+      g.fillStyle(0x457a3c).fillCircle(12, 10, 6); g.fillStyle(0x457a3c).fillCircle(21, 12, 5);
+      g.fillStyle(0x5c9449, 0.85).fillCircle(16, 7, 5);
+    });
     paint('moonwell', (g) => { g.fillStyle(0x493e70).fillCircle(16, 16, 14); g.lineStyle(3, 0xb6a7e4).strokeCircle(16, 16, 12); g.fillStyle(0x8fe4ee).fillCircle(16, 16, 7); });
     paint('warden', (g) => { g.fillStyle(0x2c4a2e).fillRoundedRect(3, 6, 26, 22, 8); g.fillStyle(0xd9ecb2).fillCircle(10, 13, 3).fillCircle(22, 13, 3); g.fillStyle(0x1c301c).fillCircle(10, 13, 1.4).fillCircle(22, 13, 1.4); g.lineStyle(3, 0xa4d07c); g.strokeRoundedRect(3, 6, 26, 22, 8); g.fillStyle(0x7ea75f); g.fillTriangle(8, 24, 16, 30, 24, 24); });
     paint('cache-sealed', (g) => { g.fillStyle(0x5a4630).fillRoundedRect(4, 10, 24, 17, 4); g.fillStyle(0x7a603f).fillRoundedRect(4, 5, 24, 8, 3); g.fillStyle(0xd8b45a).fillRect(14, 10, 4, 8); g.lineStyle(2, 0x3a2c1c).strokeRoundedRect(4, 10, 24, 17, 4); });
@@ -70,9 +95,18 @@ export default class VerdantPathScene extends Phaser.Scene {
         const stream = x >= 15 && x <= 16 && y >= 2 && y <= 14;
         const bridge = stream && y === 10;
         const edge = !isVerdantWalkable(x, y);
-        const texture = bridge ? 'stone' : stream ? 'water' : isVerdantEncounterTile(x, y) ? 'grass' : 'ground';
+        const variant = getVerdantTileVariant(x, y);
+        const texture = bridge ? 'stone' : stream ? 'water' : isVerdantEncounterTile(x, y) ? 'grass' : `ground-${variant}`;
         this.add.image(px, py, texture).setDepth(0);
-        if (edge && !stream) this.add.image(px, py, 'stone').setTint(0x5a6250).setDepth(2);
+        if (edge && !stream) {
+          // Border stones gain an authored canopy when the hash asks for one,
+          // softening the world edge without blocking any walkable route.
+          if (getVerdantTileVariant(x + 31, y) === 0) {
+            this.add.image(px, py - 6, 'tree').setDepth(7);
+          } else {
+            this.add.image(px, py, 'stone').setTint(0x5a6250).setDepth(2);
+          }
+        }
       }
     }
     for (let x = VERDANT_PATH.bossArena.x; x < VERDANT_PATH.bossArena.x + VERDANT_PATH.bossArena.width; x += 1) {

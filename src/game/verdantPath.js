@@ -69,6 +69,17 @@ export function isVerdantEncounterTile(x, y, zone = VERDANT_PATH) {
   ));
 }
 
+/**
+ * Stable decorative variant per tile for the art pass: a tiny integer hash
+ * spreads flowers, pebbles, and grass tufts deterministically so the meadow
+ * never looks flat-painted or random between visits.
+ */
+export function getVerdantTileVariant(x, y) {
+  let hash = (x * 374761393 + y * 668265263) | 0;
+  hash = (hash ^ (hash >> 13)) * 1274126177;
+  return Math.abs((hash ^ (hash >> 16)) % 4);
+}
+
 export function isVerdantWalkable(x, y, zone = VERDANT_PATH) {
   if (x < 1 || y < 1 || x >= zone.width - 1 || y >= zone.height - 1) return false;
   // A deliberately placed stream bank creates a readable route choice.
