@@ -281,6 +281,7 @@ export default class VerdantPathScene extends Phaser.Scene {
     if (!this.reducedMotion && !this.bossDefeated) {
       this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
+    this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
     if (this.registry.get('verdant-cache-opened')) this.cacheOpened = true;
     if (this.bossDefeated) this.cacheSprite.setTexture('cache-open');
     this.announceObjective();
@@ -291,7 +292,7 @@ export default class VerdantPathScene extends Phaser.Scene {
   }
 
   announceObjective() {
-    const cacheOpened = this.bossDefeated && this.cacheSprite.texture.key === 'cache-open' && this.cacheOpened;
+    const cacheOpened = Boolean(this.cacheOpened);
     const objective = getVerdantObjective({ bossDefeated: this.bossDefeated, cacheOpened });
     this.registry.events.emit('verdant-objective', objective.label);
   }
@@ -313,11 +314,11 @@ export default class VerdantPathScene extends Phaser.Scene {
     const down = this.cursors.down.isDown || this.keys.S.isDown;
     const { x, y } = getVerdantMovementIntent({ left, right, up, down, touchDirection: this.touchDirection });
     this.facing = getVerdantFacing({ x, y }, this.facing);
+    const moving = x !== 0 || y !== 0;
     // Two-frame walk cycle: alternate the bobbed step frame while moving,
     // settled on the base frame when idle.
     const walkFrame = moving && Math.floor(time / 140) % 2 === 1 ? '-step' : '';
     this.player.setTexture(`hero-${this.facing}${walkFrame}`);
-    const moving = x !== 0 || y !== 0;
     // Walk bob: a gentle squash-and-stretch while travelling reads as steps.
     const bobScale = moving ? 1.1 + Math.sin(time / 90) * 0.04 : 1.1;
     this.player.setScale(bobScale);
