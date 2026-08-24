@@ -20,6 +20,33 @@ export const VERDANT_PATH = Object.freeze({
 });
 
 /**
+ * Authored pacing: the zone has exactly one current objective. New players
+ * are pushed toward the warden fight, winners toward the cache, and finished
+ * players get a calm end state instead of a stale pointer.
+ */
+export function getVerdantObjective({ bossDefeated = false, cacheOpened = false } = {}, zone = VERDANT_PATH) {
+  if (!bossDefeated) {
+    return { label: 'Challenge the Grove Warden at the moonwell', x: zone.bossArena.x + 2, y: zone.bossArena.y + 1 };
+  }
+  if (!cacheOpened) {
+    return { label: 'Open the sealed cache behind the moonwell', x: zone.rewardCache.x, y: zone.rewardCache.y };
+  }
+  return { label: 'Verdant Path is at peace — wander as you please', x: zone.spawn.x, y: zone.spawn.y };
+}
+
+/**
+ * One cardinal step from (fromX, fromY) toward an objective tile, breaking
+ * ties on the dominant axis. Returns null when already standing on it.
+ */
+export function getVerdantGuidanceStep(fromX, fromY, objective) {
+  const dx = objective.x - fromX;
+  const dy = objective.y - fromY;
+  if (dx === 0 && dy === 0) return null;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'east' : 'west';
+  return dy > 0 ? 'south' : 'north';
+}
+
+/**
  * Resolves an authored tile event for the current position. The boss trigger
  * fires anywhere inside the warden arena; the reward stays sealed until the
  * caller confirms the boss is defeated.

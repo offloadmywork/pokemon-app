@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantMovementIntent, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -41,5 +41,22 @@ describe('Verdant Path boss gate', () => {
     const { rewardCache } = VERDANT_PATH;
     expect(getVerdantTileEvent(rewardCache.x, rewardCache.y, { bossDefeated: false })).toBe(null);
     expect(getVerdantTileEvent(rewardCache.x, rewardCache.y, { bossDefeated: true })).toBe('reward');
+  });
+});
+
+describe('Verdant Path authored pacing', () => {
+  it('guides players through warden first, cache second, peace last', () => {
+    expect(getVerdantObjective({}).label).toMatch(/Warden/);
+    expect(getVerdantObjective({ bossDefeated: true }).label).toMatch(/cache/);
+    expect(getVerdantObjective({ bossDefeated: true, cacheOpened: true }).label).toMatch(/peace/);
+  });
+
+  it('points one cardinal step toward the current objective', () => {
+    const warden = getVerdantObjective({});
+    expect(getVerdantGuidanceStep(VERDANT_PATH.spawn.x, VERDANT_PATH.spawn.y, warden)).toBe('east');
+    expect(getVerdantGuidanceStep(warden.x, warden.y, warden)).toBe(null);
+    const cache = getVerdantObjective({ bossDefeated: true });
+    expect(getVerdantGuidanceStep(cache.x + 1, cache.y, cache)).toBe('west');
+    expect(getVerdantGuidanceStep(cache.x, cache.y - 1, cache)).toBe('south');
   });
 });

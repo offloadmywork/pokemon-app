@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantMovementIntent, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -91,6 +91,17 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
     if (this.bossDefeated) this.cacheSprite.setTexture('cache-open');
     this.add.text(bossX * TILE - 26, bossY * TILE - 22, 'Grove Warden', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#ffd9c2', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
+
+    // Authored pacing: a small guide sprite hovers toward the objective.
+    this.guidanceArrow = this.add.text(0, 0, '➤', { fontSize: '14px', color: '#ffe9a8', stroke: '#172316', strokeThickness: 3 }).setDepth(19).setAlpha(0.9);
+    this.cacheOpened = false;
+    this.announceObjective();
+  }
+
+  announceObjective() {
+    const cacheOpened = this.bossDefeated && this.cacheSprite.texture.key === 'cache-open' && this.cacheOpened;
+    const objective = getVerdantObjective({ bossDefeated: this.bossDefeated, cacheOpened });
+    this.registry.events.emit('verdant-objective', objective.label);
   }
 
   update(time) {
@@ -116,6 +127,16 @@ export default class VerdantPathScene extends Phaser.Scene {
     }
 
     const tileEvent = getVerdantTileEvent(currentTileX, currentTileY, { bossDefeated: this.bossDefeated });
+
+    // The guide arrow drifts above the player, pointing one cardinal step
+    // toward the current authored objective.
+    if (this.guidanceArrow) {
+      const objective = getVerdantObjective({ bossDefeated: this.bossDefeated, cacheOpened: this.cacheOpened });
+      const step = getVerdantGuidanceStep(currentTileX, currentTileY, objective);
+      const angles = { north: -90, east: 0, south: 90, west: 180 };
+      this.guidanceArrow.setPosition(this.player.x, this.player.y - 30).setAngle(step ? angles[step] : 0).setAlpha(step ? 0.9 : 0.35);
+    }
+
     if (tileEvent && time - this.lastBossEventAt > 4000) {
       this.lastBossEventAt = time;
       if (tileEvent === 'boss') {
@@ -123,8 +144,10 @@ export default class VerdantPathScene extends Phaser.Scene {
         this.registry.events.emit('verdant-boss');
       } else if (tileEvent === 'reward') {
         this.cacheSprite.setTexture('cache-open');
+        this.cacheOpened = true;
         this.cameras.main.flash(240, 255, 236, 170);
         this.registry.events.emit('verdant-reward');
+        this.announceObjective();
       }
     }
   }
