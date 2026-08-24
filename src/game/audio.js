@@ -20,6 +20,8 @@ export const SFX_NAMES = {
   FAINT: 'faint',
   RUN_SUCCESS: 'run-success',
   ENCOUNTER: 'encounter',
+  BOSS_ROAR: 'boss-roar',
+  CACHE_OPEN: 'cache-open',
 };
 
 function loadSettings() {
@@ -106,6 +108,15 @@ const SFX_RECIPES = {
   ],
   [SFX_NAMES.FAINT]: [{ type: 'triangle', start: 300, end: 60, duration: 0.45, gain: 0.16 }],
   [SFX_NAMES.RUN_SUCCESS]: [{ type: 'sine', start: 600, end: 1200, duration: 0.2, gain: 0.12 }],
+  [SFX_NAMES.BOSS_ROAR]: [
+    { type: 'sawtooth', start: 140, end: 70, duration: 0.35, gain: 0.2 },
+    { type: 'square', start: 90, end: 45, duration: 0.45, gain: 0.16 },
+  ],
+  [SFX_NAMES.CACHE_OPEN]: [
+    { type: 'triangle', start: 392, end: 392, duration: 0.1, gain: 0.14 },
+    { type: 'triangle', start: 523, end: 523, duration: 0.1, gain: 0.14 },
+    { type: 'sine', start: 784, end: 1046, duration: 0.35, gain: 0.18 },
+  ],
 };
 
 export function normalizeSfxName(name) {

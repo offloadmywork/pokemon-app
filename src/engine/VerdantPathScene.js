@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { playSfx, vibrate } from '@/game/audio';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -219,6 +220,8 @@ export default class VerdantPathScene extends Phaser.Scene {
         if (Math.random() < 0.15) {
           this.lastEncounterAt = time;
           if (!this.reducedMotion) this.cameras.main.flash(180, 230, 250, 208);
+          playSfx('encounter');
+          vibrate(35);
           this.registry.events.emit('verdant-encounter');
         }
       }
@@ -239,11 +242,15 @@ export default class VerdantPathScene extends Phaser.Scene {
       this.lastBossEventAt = time;
       if (tileEvent === 'boss') {
         if (!this.reducedMotion) this.cameras.main.shake(220, 0.008);
+        playSfx('boss-roar');
+        vibrate([60, 40, 90]);
         this.registry.events.emit('verdant-boss');
       } else if (tileEvent === 'reward') {
         this.cacheSprite.setTexture('cache-open');
         this.cacheOpened = true;
         if (!this.reducedMotion) this.cameras.main.flash(240, 255, 236, 170);
+        playSfx('cache-open');
+        vibrate(50);
         this.registry.events.emit('verdant-reward');
         this.announceObjective();
       }
