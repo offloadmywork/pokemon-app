@@ -537,4 +537,4 @@
 - ✅ Camera shake/flash and warden tween respect `prefers-reduced-motion`.
 
 ### Next
-- Remaining judge findings: wall-sliding collision, focusable canvas host, in-world audio/haptics, warden/cache/moonwell art upgrade.
+- In-world audio/haptics, richer warden/cache/moonwell art; then desktop/mobile playthrough reviews.
