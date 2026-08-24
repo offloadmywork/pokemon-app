@@ -544,7 +544,7 @@ export default function BattleScreen({
             <div
               className={`relative w-32 h-32 md:w-40 md:h-40 ${wildShake ? 'battle-shake' : ''}`}
               style={{
-                animation: phase === PHASE.INTRO ? 'encounter-bounce 2s ease-in-out infinite' : undefined,
+                animation: phase === PHASE.INTRO ? 'encounter-bounce 2s ease-in-out infinite' : (wildHP > 0 ? 'creature-breathe 3.2s ease-in-out infinite' : undefined),
                 filter: wildFlashRed ? 'brightness(2) saturate(0) hue-rotate(0deg)' : 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
                 transition: 'filter 0.15s',
                 transform: wildLunge ? 'translateX(-30px) translateY(20px)' : 'none',
@@ -891,6 +891,10 @@ const battleStyles = `
   @keyframes encounter-bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
+  }
+  @keyframes creature-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
   }
   @keyframes slideInRight {
     from { transform: translateX(100px); opacity: 0; }
