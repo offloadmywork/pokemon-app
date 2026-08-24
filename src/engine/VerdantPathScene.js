@@ -23,6 +23,7 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.facing = 'down';
     // Animated water: collect stream tiles and swap frames on a shared clock.
     this.waterTiles = [];
+    this.trees = [];
     this.physics.world.setBounds(TILE, TILE, (MAP_WIDTH - 2) * TILE, (MAP_HEIGHT - 2) * TILE);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
@@ -130,15 +131,17 @@ export default class VerdantPathScene extends Phaser.Scene {
     paint('trailblazer', hero('down'));
     // Two-frame walk cycle: a 1px vertical-bob variant stamped from each base
     // frame, so palette and silhouette stay perfectly aligned while walking.
-    const stampStepFrame = (fromKey, toKey) => {
+    const stampStepFrame = (fromKey, toKey, dx = 0, dy = 0) => {
       if (this.textures.exists(toKey)) return;
       const src = this.textures.get(fromKey).getSourceImage();
       const frame = this.textures.createCanvas(toKey, TILE, TILE);
       if (!frame || !src) return;
-      frame.getContext().drawImage(src, 0, 1);
+      frame.getContext().drawImage(src, dx, dy);
       frame.refresh();
     };
-    ['down', 'up', 'left', 'right'].forEach((dir) => stampStepFrame(`hero-${dir}`, `hero-${dir}-step`));
+    ['down', 'up', 'left', 'right'].forEach((dir) => stampStepFrame(`hero-${dir}`, `hero-${dir}-step`, 0, 1));
+    // Tree sway: a 1px horizontal-shift variant so canopies breathe in the
+    // wind when the scene alternates between the two frames.
     paint('tree', (g) => {
       g.fillStyle(PAL.bark).fillRect(13, 22, 6, 9);
       g.fillStyle(PAL.canopy).fillCircle(16, 13, 11);
@@ -215,7 +218,7 @@ export default class VerdantPathScene extends Phaser.Scene {
           // Border stones gain an authored canopy when the hash asks for one,
           // softening the world edge without blocking any walkable route.
           if (getVerdantTileVariant(x + 31, y) === 0) {
-            this.add.image(px, py - 6, 'tree').setDepth(7);
+            this.trees.push(this.add.image(px, py - 6, 'tree').setDepth(7));
           } else {
             this.add.image(px, py, 'stone').setTint(0x5a6250).setDepth(2);
           }
@@ -258,6 +261,12 @@ export default class VerdantPathScene extends Phaser.Scene {
   }
 
   update(time) {
+    // Canopies breathe: alternate sway frames on a slow clock, phase-offset
+    // per tree so the grove moves organically rather than in lockstep.
+    if (!this.reducedMotion) {
+      const swayFrame = Math.floor(time / 600) % 2 === 1;
+      this.trees?.forEach((tree, i) => tree.setTexture(swayFrame !== (i % 2 === 0) ? 'tree-sway' : 'tree'));
+    }
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     const up = this.cursors.up.isDown || this.keys.W.isDown;
