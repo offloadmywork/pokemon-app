@@ -16,14 +16,15 @@ export default class VerdantPathScene extends Phaser.Scene {
   create() {
     this.makeTextures();
     this.cameras.main.setBackgroundColor('#10263a');
+    // drawWorld records animated water and canopy sprites as it creates them.
+    // These collections must exist before drawing, not after the player.
+    this.waterTiles = [];
+    this.trees = [];
     this.drawWorld();
 
     this.player = this.physics.add.sprite(spawn.x * TILE + TILE / 2, spawn.y * TILE + TILE / 2, 'hero-down');
     this.player.setCollideWorldBounds(true).setDepth(5).setScale(1.1);
     this.facing = 'down';
-    // Animated water: collect stream tiles and swap frames on a shared clock.
-    this.waterTiles = [];
-    this.trees = [];
     this.physics.world.setBounds(TILE, TILE, (MAP_WIDTH - 2) * TILE, (MAP_HEIGHT - 2) * TILE);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
