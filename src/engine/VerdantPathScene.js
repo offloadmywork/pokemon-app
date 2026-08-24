@@ -148,6 +148,9 @@ export default class VerdantPathScene extends Phaser.Scene {
       g.fillStyle(PAL.leaf).fillCircle(12, 10, 6); g.fillStyle(PAL.leaf).fillCircle(21, 12, 5);
       g.fillStyle(PAL.leafLight, 0.85).fillCircle(16, 7, 5);
     });
+    // Tree sway: a 1px horizontal-shift variant so canopies breathe in the
+    // wind when the scene alternates between the two frames.
+    stampStepFrame('tree', 'tree-sway', 1, 0);
     paint('moonwell', (g) => {
       // Stone-ringed pool: layered ring stones, deep water, soft inner glow.
       g.fillStyle(PAL.wellStone).fillCircle(16, 16, 15);
@@ -176,6 +179,22 @@ export default class VerdantPathScene extends Phaser.Scene {
       g.fillStyle(PAL.wood); // root feet
       g.fillTriangle(6, 25, 10, 25, 8, 30); g.fillTriangle(14, 25, 18, 25, 16, 31); g.fillTriangle(21, 25, 25, 25, 23, 30);
     });
+    // Warden idle pulse: base art plus a brighter eye-glow halo so the boss
+    // feels alive even when standing still.
+    if (!this.textures.exists('warden-pulse')) {
+      const wardenSrc = this.textures.get('warden').getSourceImage();
+      const pulse = this.textures.createCanvas('warden-pulse', TILE, TILE);
+      if (pulse && wardenSrc) {
+        const ctx = pulse.getContext();
+        ctx.drawImage(wardenSrc, 0, 0);
+        ctx.fillStyle = 'rgba(255, 224, 138, 0.5)';
+        ctx.beginPath();
+        ctx.arc(10, 13, 4.6, 0, Math.PI * 2);
+        ctx.arc(22, 13, 4.6, 0, Math.PI * 2);
+        ctx.fill();
+        pulse.refresh();
+      }
+    }
     paint('cache-sealed', (g) => {
       // Iron-banded chest with a heavy lock plate.
       g.fillStyle(PAL.wood).fillRoundedRect(4, 11, 24, 16, 3);
@@ -261,6 +280,10 @@ export default class VerdantPathScene extends Phaser.Scene {
   }
 
   update(time) {
+    // The warden's eyes pulse on a slow clock while it still stands.
+    if (this.bossSprite && !this.bossDefeated && !this.reducedMotion) {
+      this.bossSprite.setTexture(Math.floor(time / 900) % 2 ? 'warden-pulse' : 'warden');
+    }
     // Canopies breathe: alternate sway frames on a slow clock, phase-offset
     // per tree so the grove moves organically rather than in lockstep.
     if (!this.reducedMotion) {
