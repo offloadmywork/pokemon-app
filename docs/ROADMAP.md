@@ -528,6 +528,7 @@
 - ✅ A confirmed Grove Warden battle victory now unseals the reward cache: the world hands off a boss-token battle through the established boss flow, victory flips a persisted flag, and the scene renders the opened cache on return — covered by deterministic boss-rule tests.
 - ✅ Authored pacing now guides the run: a single zone objective (warden → cache → peace) is announced in the HUD, and an in-world guide arrow above the player points one cardinal step toward it — all driven by deterministic, unit-tested world rules.
 - ✅ First art pass: the meadow now uses four handcrafted ground variants (flower meadow, pebbled clearing, shaded patches, grass tufts) placed by a deterministic tile hash, plus authored tree canopies softening the world edge — no flat single-color tiles.
+- ✅ Character pass: the hero now has four directional sprites (front/back/side with readable details — eyes, rosy cheek, cloak trail, satchel on the back view), keeps the last facing when idle (unit-tested rule), and bobs gently while walking. Stream water shimmers between two authored frames.
 
 ### Next
-- Character/creature sprite upgrade (directional facing + walk animation), animated water, then desktop/mobile playthrough reviews.
+- Creature battle-sprite polish + desktop/mobile playthrough reviews; judge re-review of the slice.
