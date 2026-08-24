@@ -128,6 +128,17 @@ export default class VerdantPathScene extends Phaser.Scene {
     paint('hero-left', hero('left'));
     paint('hero-right', hero('right'));
     paint('trailblazer', hero('down'));
+    // Two-frame walk cycle: a 1px vertical-bob variant stamped from each base
+    // frame, so palette and silhouette stay perfectly aligned while walking.
+    const stampStepFrame = (fromKey, toKey) => {
+      if (this.textures.exists(toKey)) return;
+      const src = this.textures.get(fromKey).getSourceImage();
+      const frame = this.textures.createCanvas(toKey, TILE, TILE);
+      if (!frame || !src) return;
+      frame.getContext().drawImage(src, 0, 1);
+      frame.refresh();
+    };
+    ['down', 'up', 'left', 'right'].forEach((dir) => stampStepFrame(`hero-${dir}`, `hero-${dir}-step`));
     paint('tree', (g) => {
       g.fillStyle(PAL.bark).fillRect(13, 22, 6, 9);
       g.fillStyle(PAL.canopy).fillCircle(16, 13, 11);
@@ -253,7 +264,10 @@ export default class VerdantPathScene extends Phaser.Scene {
     const down = this.cursors.down.isDown || this.keys.S.isDown;
     const { x, y } = getVerdantMovementIntent({ left, right, up, down, touchDirection: this.touchDirection });
     this.facing = getVerdantFacing({ x, y }, this.facing);
-    this.player.setTexture(`hero-${this.facing}`);
+    // Two-frame walk cycle: alternate the bobbed step frame while moving,
+    // settled on the base frame when idle.
+    const walkFrame = moving && Math.floor(time / 140) % 2 === 1 ? '-step' : '';
+    this.player.setTexture(`hero-${this.facing}${walkFrame}`);
     const moving = x !== 0 || y !== 0;
     // Walk bob: a gentle squash-and-stretch while travelling reads as steps.
     const bobScale = moving ? 1.1 + Math.sin(time / 90) * 0.04 : 1.1;
