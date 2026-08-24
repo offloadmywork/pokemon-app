@@ -550,5 +550,8 @@
 2. ~~World-state accessibility summary~~ ✅ shipped (sr-only live region mirroring boss/cache state).
 3. ~~Palette/sprite unification pass~~ ✅ shipped (single shared PAL vocabulary across all procedural textures).
 
-### Next milestone
-- Production art pipeline evaluation (real sprite assets replacing procedural textures), plus periodic desktop/mobile playthrough reviews.
+### Next milestone: production art pipeline — DECIDED (2026-08-24)
+- Evaluated CC0 packs / AI-generated sprites / enhanced procedural against the 358KB deferred-engine budget (~14KB headroom) and license constraints.
+- **Decision: enhanced procedural art now** (fits budget, perfect license safety, preserves the judged-cohesive look). CC0 packs revisited only if a separate asset budget is approved; AI sprites deprioritized (consistency/effort ratio at 32px).
+- ✅ First step shipped: two-frame hero walk cycle (bobbed step frames stamped from base frames, swapped on movement clock).
+- Next procedural upgrades: tree sway variant, boss idle pulse frame, grass rustle overlay, subtle ground dithering.
