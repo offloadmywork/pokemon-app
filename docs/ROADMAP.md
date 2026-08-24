@@ -527,6 +527,7 @@
 - ✅ The Grove Warden now guards the moonwell: entering its arena triggers a boss encounter signal with camera shake, and the sealed reward cache opens only after a boss-defeat flag, with deterministic world-rule tests.
 - ✅ A confirmed Grove Warden battle victory now unseals the reward cache: the world hands off a boss-token battle through the established boss flow, victory flips a persisted flag, and the scene renders the opened cache on return — covered by deterministic boss-rule tests.
 - ✅ Authored pacing now guides the run: a single zone objective (warden → cache → peace) is announced in the HUD, and an in-world guide arrow above the player points one cardinal step toward it — all driven by deterministic, unit-tested world rules.
+- ✅ First art pass: the meadow now uses four handcrafted ground variants (flower meadow, pebbled clearing, shaded patches, grass tufts) placed by a deterministic tile hash, plus authored tree canopies softening the world edge — no flat single-color tiles.
 
 ### Next
-- First original production-art pass (handcrafted tileset + character/creature sprites replacing generated placeholders), then desktop/mobile playthrough reviews.
+- Character/creature sprite upgrade (directional facing + walk animation), animated water, then desktop/mobile playthrough reviews.
