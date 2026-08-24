@@ -537,4 +537,4 @@
 - ✅ Camera shake/flash and warden tween respect `prefers-reduced-motion`.
 
 ### Next
-- In-world audio/haptics, richer warden/cache/moonwell art; then desktop/mobile playthrough reviews.
+- Richer warden/cache/moonwell art; then desktop/mobile playthrough reviews and a fresh judge pass.
