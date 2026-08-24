@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import VerdantPathScene from '@/engine/VerdantPathScene';
+import { pokemonAPI } from '@/api/client';
 
 export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated = false }) {
   const hostRef = useRef(null);
   const gameRef = useRef(null);
+  // The engine must live for the whole visit: a ref keeps the latest callback
+  // reachable without re-running the init effect (which would rebuild Phaser
+  // and reset the player's position whenever App re-renders).
+  const onEncounterRef = useRef(onEncounter);
+  useEffect(() => { onEncounterRef.current = onEncounter; }, [onEncounter]);
   const [encounterNotice, setEncounterNotice] = useState('Explore the glades. Wild traces stir in the tall grass.');
   const [objective, setObjective] = useState('');
 
   useEffect(() => {
-    if (!hostRef.current || gameRef.current) return undefined;
-    const game = new Phaser.Game({
+    if (!hostRef.current || gameRef.current) return undefined;    const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: hostRef.current,
       width: 720,
@@ -23,16 +28,28 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
     });
     const handleEncounter = () => {
       setEncounterNotice('A wild trace breaks through the grass — entering battle.');
-      onEncounter?.('wild');
+      onEncounterRef.current?.('wild');
     };
     const handleBoss = () => {
       setEncounterNotice('The Grove Warden rises from the moonwell — defeat it to open the sealed cache!');
-      onEncounter?.('boss');
+      onEncounterRef.current?.('boss');
     };
-    const handleReward = () => setEncounterNotice('The warden is defeated — the moonwell cache opens. Spoils claimed!');
+    const handleReward = () => {
+      setEncounterNotice('The moonwell cache opens — 2 Potions and a Super Potion claimed!');
+      // The reward must be real, not cosmetic: bounded items via the
+      // existing economy, granted exactly when the cache first opens.
+      Promise.allSettled([
+        pokemonAPI.addItem('potion', 2),
+        pokemonAPI.addItem('super_potion', 1),
+      ]).catch(() => {});
+      try { localStorage.setItem('verdant-cache-opened', '1'); } catch { /* private mode */ }
+    };
     const handleObjective = (label) => setObjective(label);
     game.registry.events.on('verdant-encounter', handleEncounter);
     game.registry.set('verdant-boss-defeated', Boolean(wardenDefeated));
+    let cacheOpened = false;
+    try { cacheOpened = wardenDefeated && localStorage.getItem('verdant-cache-opened') === '1'; } catch { /* private mode */ }
+    game.registry.set('verdant-cache-opened', cacheOpened);
     game.registry.events.on('verdant-boss', handleBoss);
     game.registry.events.on('verdant-reward', handleReward);
     game.registry.events.on('verdant-objective', handleObjective);
@@ -45,7 +62,7 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
       game.destroy(true);
       gameRef.current = null;
     };
-  }, [onEncounter]);
+  }, []);
 
   const startMove = (direction) => gameRef.current?.registry.events.emit('verdant-move-start', direction);
   const stopMove = () => gameRef.current?.registry.events.emit('verdant-move-end');

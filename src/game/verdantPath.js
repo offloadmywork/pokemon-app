@@ -56,7 +56,9 @@ export function getVerdantTileEvent(x, y, { bossDefeated = false } = {}, zone = 
   if (x >= rewardCache.x && x < rewardCache.x + 1 && y >= rewardCache.y && y < rewardCache.y + 1) {
     return bossDefeated ? 'reward' : null;
   }
-  if (
+  // A defeated warden closes the gate: the arena becomes safe ground and the
+  // critical path to the cache can never re-trigger the fight.
+  if (!bossDefeated &&
     x >= bossArena.x && x < bossArena.x + bossArena.width &&
     y >= bossArena.y && y < bossArena.y + bossArena.height
   ) return 'boss';

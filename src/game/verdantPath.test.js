@@ -37,6 +37,11 @@ describe('Verdant Path boss gate', () => {
     expect(getVerdantTileEvent(VERDANT_PATH.spawn.x, VERDANT_PATH.spawn.y)).toBe(null);
   });
 
+  it('closes the boss gate once the warden is defeated', () => {
+    const { bossArena } = VERDANT_PATH;
+    expect(getVerdantTileEvent(bossArena.x + 1, bossArena.y + 1, { bossDefeated: true })).toBe(null);
+  });
+
   it('keeps the reward sealed until the warden falls', () => {
     const { rewardCache } = VERDANT_PATH;
     expect(getVerdantTileEvent(rewardCache.x, rewardCache.y, { bossDefeated: false })).toBe(null);

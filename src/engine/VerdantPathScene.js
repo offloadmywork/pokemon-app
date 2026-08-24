@@ -7,6 +7,7 @@ export default class VerdantPathScene extends Phaser.Scene {
   constructor() {
     super('VerdantPath');
     this.lastEncounterAt = 0;
+    this.lastEncounterRollAt = 0;
     this.bossDefeated = false;
     this.lastBossEventAt = 0;
   }
@@ -29,9 +30,18 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.clearTouchDirection = () => { this.touchDirection = null; };
     this.registry.events.on('verdant-move-start', this.setTouchDirection);
     this.registry.events.on('verdant-move-end', this.clearTouchDirection);
-    this.markBossDefeated = () => { this.bossDefeated = true; };
+    this.markBossDefeated = () => {
+      this.bossDefeated = true;
+      if (this.bossSprite) {
+        this.tweens.killTweensOf(this.bossSprite);
+        this.bossSprite.setVisible(false);
+      }
+    };
     this.registry.events.on('verdant-boss-defeated', this.markBossDefeated);
-    if (this.registry.get('verdant-boss-defeated')) this.bossDefeated = true;
+    if (this.registry.get('verdant-boss-defeated')) {
+      this.bossDefeated = true;
+      this.bossSprite.setVisible(false);
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.registry.events.off('verdant-move-start', this.setTouchDirection);
       this.registry.events.off('verdant-move-end', this.clearTouchDirection);
@@ -150,9 +160,18 @@ export default class VerdantPathScene extends Phaser.Scene {
     const bossX = VERDANT_PATH.bossArena.x + 2;
     const bossY = VERDANT_PATH.bossArena.y + 1;
     this.bossSprite = this.add.image(bossX * TILE + TILE / 2, bossY * TILE + TILE / 2, 'warden').setDepth(6);
-    this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    if (!this.reducedMotion && !this.bossDefeated) {
+      this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
     this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
+    this.cacheOpened = false;
+    if (this.registry.get('verdant-cache-opened')) this.cacheOpened = true;
     if (this.bossDefeated) this.cacheSprite.setTexture('cache-open');
+    // Reduced-motion players get calm feedback: no shake, flash, or idle tweens.
+    this.reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.announceObjective();
     this.add.text(bossX * TILE - 26, bossY * TILE - 22, 'Grove Warden', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#ffd9c2', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
 
     // Authored pacing: a small guide sprite hovers toward the objective.
@@ -195,10 +214,16 @@ export default class VerdantPathScene extends Phaser.Scene {
     for (const tile of this.waterTiles) {
       if (tile.texture.key !== waterFrame) tile.setTexture(waterFrame);
     }
-    if (isVerdantEncounterTile(currentTileX, currentTileY) && movement.lengthSq() > 0 && time - this.lastEncounterAt > 5000 && Math.random() < 0.006) {
-      this.lastEncounterAt = time;
-      this.cameras.main.flash(180, 230, 250, 208);
-      this.registry.events.emit('verdant-encounter');
+    if (isVerdantEncounterTile(currentTileX, currentTileY) && movement.lengthSq() > 0) {
+      // Time-based roll: identical encounter odds on 60 Hz and 120 Hz screens.
+      if (time - this.lastEncounterRollAt > 400) {
+        this.lastEncounterRollAt = time;
+        if (Math.random() < 0.15) {
+          this.lastEncounterAt = time;
+          if (!this.reducedMotion) this.cameras.main.flash(180, 230, 250, 208);
+          this.registry.events.emit('verdant-encounter');
+        }
+      }
     }
 
     const tileEvent = getVerdantTileEvent(currentTileX, currentTileY, { bossDefeated: this.bossDefeated });
@@ -215,12 +240,12 @@ export default class VerdantPathScene extends Phaser.Scene {
     if (tileEvent && time - this.lastBossEventAt > 4000) {
       this.lastBossEventAt = time;
       if (tileEvent === 'boss') {
-        this.cameras.main.shake(220, 0.008);
+        if (!this.reducedMotion) this.cameras.main.shake(220, 0.008);
         this.registry.events.emit('verdant-boss');
       } else if (tileEvent === 'reward') {
         this.cacheSprite.setTexture('cache-open');
         this.cacheOpened = true;
-        this.cameras.main.flash(240, 255, 236, 170);
+        if (!this.reducedMotion) this.cameras.main.flash(240, 255, 236, 170);
         this.registry.events.emit('verdant-reward');
         this.announceObjective();
       }
