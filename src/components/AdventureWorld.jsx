@@ -33,6 +33,15 @@ export default function AdventureWorld({ onNavigate, onEncounter }) {
     };
   }, [onEncounter]);
 
+  const startMove = (direction) => gameRef.current?.registry.events.emit('verdant-move-start', direction);
+  const stopMove = () => gameRef.current?.registry.events.emit('verdant-move-end');
+  const controls = [
+    { direction: 'up', label: 'Move north', symbol: '▲', className: 'col-start-2' },
+    { direction: 'left', label: 'Move west', symbol: '◀', className: 'col-start-1' },
+    { direction: 'down', label: 'Move south', symbol: '▼', className: 'col-start-2' },
+    { direction: 'right', label: 'Move east', symbol: '▶', className: 'col-start-3' },
+  ];
+
   return (
     <main className="min-h-screen bg-[#10263a] px-3 pb-28 pt-5 text-[#fff5ca]">
       <section className="mx-auto max-w-4xl">
@@ -46,6 +55,33 @@ export default function AdventureWorld({ onNavigate, onEncounter }) {
           <p role="status" className="text-sm font-semibold text-[#e8f0c7]">{encounterNotice}</p>
           <button type="button" onClick={() => onNavigate('browse')} className="rounded-lg border-2 border-[#e2c477] bg-[#a9523d] px-4 py-2 text-sm font-black text-white shadow-[0_3px_0_#5a2923]">Open legacy battle map</button>
         </div>
+        <section aria-label="World touch controls" className="mt-5 rounded-2xl border border-[#6d946d] bg-[#0d2730] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] sm:hidden">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-serif text-lg font-black text-[#fff5ca]">Trail compass</p>
+              <p className="text-xs text-[#bed7b5]">Press and hold to explore. Keyboard controls still work.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Move through Verdant Path">
+              {controls.map((control) => (
+                <button
+                  key={control.direction}
+                  type="button"
+                  aria-label={control.label}
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#d7c071] bg-[#31534c] text-lg text-[#fff5ca] shadow-[0_3px_0_#07171c] active:translate-y-[2px] active:shadow-[0_1px_0_#07171c] ${control.className}`}
+                  style={{ touchAction: 'none' }}
+                  onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); startMove(control.direction); }}
+                  onPointerUp={stopMove}
+                  onPointerCancel={stopMove}
+                  onPointerLeave={stopMove}
+                  onKeyDown={(event) => { if (!event.repeat && (event.key === ' ' || event.key === 'Enter')) startMove(control.direction); }}
+                  onKeyUp={stopMove}
+                >
+                  <span aria-hidden="true">{control.symbol}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   );

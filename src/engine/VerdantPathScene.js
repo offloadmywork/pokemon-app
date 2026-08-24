@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantMovementIntent, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -19,6 +19,15 @@ export default class VerdantPathScene extends Phaser.Scene {
     this.physics.world.setBounds(TILE, TILE, (MAP_WIDTH - 2) * TILE, (MAP_HEIGHT - 2) * TILE);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D');
+    this.touchDirection = null;
+    this.setTouchDirection = (direction) => { this.touchDirection = direction; };
+    this.clearTouchDirection = () => { this.touchDirection = null; };
+    this.registry.events.on('verdant-move-start', this.setTouchDirection);
+    this.registry.events.on('verdant-move-end', this.clearTouchDirection);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.registry.events.off('verdant-move-start', this.setTouchDirection);
+      this.registry.events.off('verdant-move-end', this.clearTouchDirection);
+    });
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setZoom(1.45);
@@ -68,8 +77,7 @@ export default class VerdantPathScene extends Phaser.Scene {
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     const up = this.cursors.up.isDown || this.keys.W.isDown;
     const down = this.cursors.down.isDown || this.keys.S.isDown;
-    const x = (right ? 1 : 0) - (left ? 1 : 0);
-    const y = (down ? 1 : 0) - (up ? 1 : 0);
+    const { x, y } = getVerdantMovementIntent({ left, right, up, down, touchDirection: this.touchDirection });
     const movement = new Phaser.Math.Vector2(x, y).normalize().scale(125);
     const nextX = this.player.x + movement.x * 0.02;
     const nextY = this.player.y + movement.y * 0.02;

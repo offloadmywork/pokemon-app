@@ -26,3 +26,19 @@ export function isVerdantWalkable(x, y, zone = VERDANT_PATH) {
   // A deliberately placed stream bank creates a readable route choice.
   return !(x >= 15 && x <= 16 && y >= 2 && y <= 14 && y !== 10);
 }
+
+/**
+ * Touch controls deliberately share the keyboard movement model. A held
+ * virtual direction takes priority so a focused keyboard key cannot fight a
+ * player's thumb on a small screen.
+ */
+export function getVerdantMovementIntent({ left = false, right = false, up = false, down = false, touchDirection = null } = {}) {
+  const touchVectors = {
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 },
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+  };
+  if (touchDirection && touchVectors[touchDirection]) return touchVectors[touchDirection];
+  return { x: (right ? 1 : 0) - (left ? 1 : 0), y: (down ? 1 : 0) - (up ? 1 : 0) };
+}

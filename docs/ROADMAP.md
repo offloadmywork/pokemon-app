@@ -523,6 +523,7 @@
 - ✅ Verdant Path provides an original handcrafted exploration scene with keyboard movement, camera follow, collision, a bridge route choice, authored encounter glades, landmarks, and deterministic world-rule tests.
 - ✅ Performance audit now distinguishes the initial shell from the intentional deferred game-engine download, with individual and total package budgets.
 - ✅ A Verdant Path encounter now hands off exactly once into the existing server-rolled battle and capture flow, with BDD coverage for the complete transition.
+- ✅ A mobile Trail Compass supplies press-and-hold Phaser movement with labeled controls and keyboard activation; its deterministic input rule is unit-tested.
 
 ### Next
-- Add touch controls and accessible alternative input, replace primitive generated art with original production assets, and run desktop/mobile playthrough reviews.
+- Replace primitive generated art with original production assets, add an authored start-to-boss-to-reward path, and run desktop/mobile playthrough reviews.
