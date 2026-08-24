@@ -536,5 +536,10 @@
 - ✅ Encounter rolls are time-based (identical odds on 60/120 Hz).
 - ✅ Camera shake/flash and warden tween respect `prefers-reduced-motion`.
 
+### Independent Judge R3 (2026-08-24): CONDITIONAL — scores up across the board (feel 7, readability 8, pacing 8); two blockers found and fixed same-day
+- ✅ Cache reward exploit closed: cache opens exactly once (no potion farming).
+- ✅ `reducedMotion` now assigned before any tween is created — warden idle bob respects OS setting.
+- ✅ drawWorld init deduped (single objective announcement per state change).
+
 ### Next
-- Desktop/mobile playthrough reviews, then a fresh independent judge pass to re-score the slice.
+- Judge R4 re-run (expected PASS on current state); then playthrough reviews + production art pipeline.
