@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
 
@@ -199,12 +199,10 @@ export default class VerdantPathScene extends Phaser.Scene {
     const bobScale = moving ? 1.1 + Math.sin(time / 90) * 0.04 : 1.1;
     this.player.setScale(bobScale);
     const movement = new Phaser.Math.Vector2(x, y).normalize().scale(125);
-    const nextX = this.player.x + movement.x * 0.02;
-    const nextY = this.player.y + movement.y * 0.02;
-    const tileX = Math.floor(nextX / TILE);
-    const tileY = Math.floor(nextY / TILE);
-    if (isVerdantWalkable(tileX, tileY)) this.player.setVelocity(movement.x, movement.y);
-    else this.player.setVelocity(0, 0);
+    // Axis-separated collision: blocked axis stops, the free axis slides —
+    // hugging walls and coasting along the stream feels smooth, not sticky.
+    const slide = getVerdantSlideVelocity(this.player.x, this.player.y, movement.x, movement.y);
+    this.player.setVelocity(slide.x, slide.y);
 
     const currentTileX = Math.floor(this.player.x / TILE);
     const currentTileY = Math.floor(this.player.y / TILE);

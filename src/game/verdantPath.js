@@ -96,6 +96,23 @@ export function getVerdantFacing(intent, currentFacing = 'down') {
   return currentFacing;
 }
 
+/**
+ * Axis-separated collision with wall sliding: a blocked axis drops to zero
+ * while the free axis keeps its motion, so hugging a wall feels smooth.
+ * The hero's body is probed as a small square slightly narrower than a tile.
+ */
+export function getVerdantSlideVelocity(px, py, vx, vy, tileSize = VERDANT_PATH.tileSize) {
+  const probe = tileSize * 0.38;
+  const fitsAt = (nx, ny) => (
+    [[-probe, -probe], [probe, -probe], [-probe, probe], [probe, probe]]
+      .every(([ox, oy]) => isVerdantWalkable(Math.floor((nx + ox) / tileSize), Math.floor((ny + oy) / tileSize)))
+  );
+  if (fitsAt(px + vx, py + vy)) return { x: vx, y: vy };
+  if (vx !== 0 && fitsAt(px + vx, py)) return { x: vx, y: 0 };
+  if (vy !== 0 && fitsAt(px, py + vy)) return { x: 0, y: vy };
+  return { x: 0, y: 0 };
+}
+
 export function isVerdantWalkable(x, y, zone = VERDANT_PATH) {
   if (x < 1 || y < 1 || x >= zone.width - 1 || y >= zone.height - 1) return false;
   // A deliberately placed stream bank creates a readable route choice.

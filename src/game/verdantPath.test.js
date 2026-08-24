@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -90,5 +90,27 @@ describe('Verdant Path character facing rules', () => {
     expect(getVerdantFacing({ x: 0, y: -1 }, 'left')).toBe('up');
     expect(getVerdantFacing({ x: 0, y: 0 }, 'north-by-northwest')).toBe('north-by-northwest');
     expect(getVerdantFacing({}, 'down')).toBe('down');
+  });
+});
+
+describe('Verdant Path wall-slide rules', () => {
+  it('slides along a wall instead of sticking: blocked axis drops, free axis keeps moving', () => {
+    // Spawn (4, 17); walk left into the border at x=1 while drifting up.
+    const px = VERDANT_PATH.tileSize * 1.5;
+    const py = VERDANT_PATH.tileSize * 17.5;
+    const result = getVerdantSlideVelocity(px, py, -125, -60);
+    expect(result.x).toBe(0);
+    expect(result.y).toBe(-60);
+  });
+
+  it('keeps full motion on open ground', () => {
+    const px = VERDANT_PATH.spawn.x * VERDANT_PATH.tileSize + 16;
+    const py = VERDANT_PATH.spawn.y * VERDANT_PATH.tileSize + 16;
+    expect(getVerdantSlideVelocity(px, py, 100, -50)).toEqual({ x: 100, y: -50 });
+  });
+
+  it('stops fully when cornered', () => {
+    const result = getVerdantSlideVelocity(VERDANT_PATH.tileSize * 1.5, VERDANT_PATH.tileSize * 1.5, -125, -125);
+    expect(result).toEqual({ x: 0, y: 0 });
   });
 });

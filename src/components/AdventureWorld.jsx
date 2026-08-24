@@ -80,7 +80,18 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
         <h1 className="mt-2 font-serif text-4xl font-black tracking-tight sm:text-5xl">Verdant Path</h1>
         <p className="mt-2 max-w-2xl text-sm text-[#cfdfc4]">An original engine-built exploration slice: camera-follow movement, collision, a bridge route choice, authored encounter glades, and landmark navigation.</p>
         <div className="mt-5 overflow-hidden rounded-2xl border-4 border-[#c4aa74] bg-[#172f36] shadow-[0_14px_0_#0c1820,0_26px_45px_rgba(0,0,0,0.42)]">
-          <div ref={hostRef} aria-label="Verdant Path playable world. Use WASD or arrow keys to explore." />
+          <div
+        ref={hostRef}
+        tabIndex={0}
+        role="application"
+        aria-label="Verdant Path playable world. Use WASD or arrow keys to explore."
+        className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#ffe9a8]"
+        onKeyDown={(event) => {
+          // Keep game keys from scrolling or triggering page shortcuts while
+          // the world has focus.
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault();
+        }}
+      />
         </div>
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#55755a] bg-[#1a3540] p-4 sm:flex-row sm:items-center sm:justify-between">
           <p role="status" className="text-sm font-semibold text-[#e8f0c7]">{encounterNotice}</p>
