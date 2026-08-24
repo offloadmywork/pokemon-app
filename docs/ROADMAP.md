@@ -526,6 +526,7 @@
 - ✅ A mobile Trail Compass supplies press-and-hold Phaser movement with labeled controls and keyboard activation; its deterministic input rule is unit-tested.
 - ✅ The Grove Warden now guards the moonwell: entering its arena triggers a boss encounter signal with camera shake, and the sealed reward cache opens only after a boss-defeat flag, with deterministic world-rule tests.
 - ✅ A confirmed Grove Warden battle victory now unseals the reward cache: the world hands off a boss-token battle through the established boss flow, victory flips a persisted flag, and the scene renders the opened cache on return — covered by deterministic boss-rule tests.
+- ✅ Authored pacing now guides the run: a single zone objective (warden → cache → peace) is announced in the HUD, and an in-world guide arrow above the player points one cardinal step toward it — all driven by deterministic, unit-tested world rules.
 
 ### Next
-- Authored start-to-boss pacing (guiding landmarks, gate feedback) and the first original production-art pass; then desktop/mobile playthrough reviews.
+- First original production-art pass (handcrafted tileset + character/creature sprites replacing generated placeholders), then desktop/mobile playthrough reviews.
