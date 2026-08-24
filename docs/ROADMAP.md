@@ -546,6 +546,6 @@
 - Both R3 blockers verified fixed in source; 910 tests green; verdict: "coherent, fair, readable vertical slice" — remaining gaps are polish-tier, not correctness-tier.
 
 ### Next (judge-ranked)
-1. Footstep + ambient audio layer during traversal.
-2. World-state accessibility summary (text/status region mirroring objective + boss/cache state).
+1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).
+2. ~~World-state accessibility summary~~ ✅ shipped (sr-only live region mirroring boss/cache state).
 3. Palette/sprite unification pass across procedural tiles and characters.
