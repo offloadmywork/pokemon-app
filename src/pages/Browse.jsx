@@ -183,7 +183,7 @@ function saveActiveLure(lure) {
 // ═══════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════
-export default function Browse({ onNavigate, today = new Date().toISOString().slice(0, 10) }) {
+export default function Browse({ onNavigate, today = new Date().toISOString().slice(0, 10), worldEncounterToken = 0 }) {
   // Progress state
   const [xp, setXp] = useState(() => loadProgress().xp);
   const [level, setLevel] = useState(() => loadProgress().level);
@@ -527,6 +527,16 @@ export default function Browse({ onNavigate, today = new Date().toISOString().sl
     }
     setEncounterPhase('battle');
   }, [fetchRandomPokemon]);
+
+  // Phaser owns exploration, while the established battle screen owns the
+  // turn-based/capture resolution. A token makes each world encounter a
+  // single explicit handoff, including if the Browse page re-renders.
+  const handledWorldEncounterRef = useRef(0);
+  useEffect(() => {
+    if (!worldEncounterToken || handledWorldEncounterRef.current === worldEncounterToken) return;
+    handledWorldEncounterRef.current = worldEncounterToken;
+    triggerEncounter();
+  }, [worldEncounterToken, triggerEncounter]);
 
   // ═══════════════════════════════════════════
   // BATTLE END HANDLER

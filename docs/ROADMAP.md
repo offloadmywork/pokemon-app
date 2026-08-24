@@ -1,7 +1,7 @@
 # Pokemon App — Roadmap / Status
 
 ## Current Phase
-- **Phase:** Phase 4 — Live Ops and Retention (GDD v1.1 candidate in progress)
+- **Phase:** Phase 4 — Live Ops and Retention (GDD v1.1 defined; quality-gate review in progress)
 - **Focus:** Weekly Missions slice
 
 ## Current Feature: Daily Quests
@@ -457,7 +457,8 @@
 - ✅ Release-readiness guardrails stay mandatory before any automatic deployment
 
 ### Next
-- Next GDD Expansion Brief slice complete for now; turn it into a detailed GDD v1.1 only after product direction is confirmed.
+- ✅ Detailed Phase 4 GDD v1.1 now defines the live-ops loop, delivery order, and evidence-based quality gates.
+- Next: close the independent quality-gate findings, then select the first vertical-slice polish target.
 
 ## Current Feature: Release Readiness Automation
 ### Implemented
@@ -514,3 +515,14 @@
 
 ### Next
 - Extend KPI snapshot with weekly mission engagement once production data exists
+- Close the Phase 4 quality-gate findings: server-bound identity/integrity, E2E/accessibility coverage, production observability, and an authored vertical slice.
+
+## Current Feature: Phaser Playable-World Vertical Slice
+### Implemented
+- ✅ Phaser is route-deferred behind the new World tab, preserving the small initial mobile shell.
+- ✅ Verdant Path provides an original handcrafted exploration scene with keyboard movement, camera follow, collision, a bridge route choice, authored encounter glades, landmarks, and deterministic world-rule tests.
+- ✅ Performance audit now distinguishes the initial shell from the intentional deferred game-engine download, with individual and total package budgets.
+- ✅ A Verdant Path encounter now hands off exactly once into the existing server-rolled battle and capture flow, with BDD coverage for the complete transition.
+
+### Next
+- Add touch controls and accessible alternative input, replace primitive generated art with original production assets, and run desktop/mobile playthrough reviews.

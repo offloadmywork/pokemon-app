@@ -17,6 +17,7 @@
     "hono": "^4.11.9",
     "itty-router": "^5.0.22",
     "lucide-react": "^0.475.0",
+    "phaser": "^3.90.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "uuid": "^13.0.0"

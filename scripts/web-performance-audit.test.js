@@ -52,6 +52,8 @@ describe('web performance audit', () => {
       targets: {
         maxJavaScriptGzipBytes: 1,
         maxCssGzipBytes: 1024,
+        maxInitialGzipBytes: 2 * 1024,
+        maxDeferredGameEngineGzipBytes: 2 * 1024,
         maxTotalGzipBytes: 2 * 1024,
       },
     });
@@ -63,6 +65,27 @@ describe('web performance audit', () => {
         type: 'javascript',
       }),
     ]);
+  });
+
+  it('keeps a game engine deferred instead of charging it to the initial mobile shell', () => {
+    const audit = auditBuildAssetBudget({
+      assets: {
+        'dist/assets/index.js': 'shell',
+        'dist/assets/AdventureWorld-engine.js': 'engine'.repeat(100),
+      },
+      targets: {
+        maxJavaScriptGzipBytes: 1024,
+        maxCssGzipBytes: 1024,
+        maxInitialGzipBytes: 1024,
+        maxDeferredGameEngineGzipBytes: 1024,
+        maxTotalGzipBytes: 2 * 1024,
+      },
+    });
+
+    expect(audit.status).toBe('on-target');
+    expect(audit.initialOverBudget).toBe(false);
+    expect(audit.engineOverBudget).toBe(false);
+    expect(audit.deferredGameEngineGzipBytes).toBeGreaterThan(0);
   });
 
   it('keeps checked-in source inside the GDD web-friendly performance guardrails', () => {

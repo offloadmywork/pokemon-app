@@ -142,7 +142,7 @@ describe('post-Phase-3 roadmap backlog', () => {
     expect(roadmap).toContain('Weekly missions and event rotations build on daily quests, streaks, and seasonal events');
     expect(roadmap).toContain('Collection mastery tiers extend achievements without adding pay-to-win power');
     expect(roadmap).toContain('Release-readiness guardrails stay mandatory before any automatic deployment');
-    expect(roadmap).toContain('Next GDD Expansion Brief slice complete for now');
+    expect(roadmap).toContain('Detailed Phase 4 GDD v1.1 now defines the live-ops loop, delivery order, and evidence-based quality gates.');
   });
 
   it('tracks release-readiness automation before automatic deployment', () => {

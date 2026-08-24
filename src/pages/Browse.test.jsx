@@ -29,6 +29,7 @@ vi.mock('@/api/client', () => ({
   pokemonAPI: {
     getCaughtPokemon: vi.fn(),
     getRandomPokemon: vi.fn(),
+    rollEncounter: vi.fn(),
     getBossClears: vi.fn(),
     recordBossClear: vi.fn(),
     getItems: vi.fn(),
@@ -48,6 +49,7 @@ describe('Browse Page', () => {
     pokemonAPI.useItem.mockResolvedValue({ success: true });
     pokemonAPI.getCosmetics.mockResolvedValue({ cosmetics: [] });
     pokemonAPI.getUpgrades.mockResolvedValue({ upgrades: {} });
+    pokemonAPI.rollEncounter.mockRejectedValue(new Error('Encounter service unavailable'));
   });
 
   it('should show loading state initially', () => {
@@ -177,6 +179,21 @@ describe('Browse Page', () => {
     fireEvent.click(await screen.findByLabelText('Boss: Grove Guardian'));
 
     expect(await screen.findByText('Boss Battle: Grove Guardian')).toBeInTheDocument();
+  });
+
+  it('should hand a World encounter into the existing battle and capture flow', async () => {
+    pokemonAPI.getCaughtPokemon.mockResolvedValue([]);
+    pokemonAPI.rollEncounter.mockResolvedValue({
+      id: 'ripplecub', name: 'Ripplecub', type: 'Water', rarity: 'Common', power_level: 12,
+    });
+    localStorage.setItem('pokemon-team-cache', JSON.stringify([
+      { pokemon_id: 'starter-1', name: 'Leaflet', type: 'Grass', power_level: 25, currentHP: 80 },
+    ]));
+
+    render(<Browse onNavigate={vi.fn()} worldEncounterToken={1} />);
+
+    expect(await screen.findByText('Boss Battle: Ripplecub')).toBeInTheDocument();
+    expect(pokemonAPI.rollEncounter).toHaveBeenCalledWith(1, null);
   });
 
   it('should pass the equipped ball-skin cosmetic into battle encounters', async () => {

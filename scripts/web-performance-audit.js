@@ -20,7 +20,11 @@ export const PERFORMANCE_BUDGET_TARGETS = {
   assets: {
     maxJavaScriptGzipBytes: 110 * 1024,
     maxCssGzipBytes: 16 * 1024,
-    maxTotalGzipBytes: 140 * 1024,
+    // The React shell must remain quick on a mobile connection. Phaser is
+    // deliberately deferred behind the World tab and receives its own cap.
+    maxInitialGzipBytes: 140 * 1024,
+    maxDeferredGameEngineGzipBytes: 350 * 1024,
+    maxTotalGzipBytes: 500 * 1024,
   },
 };
 
@@ -75,6 +79,8 @@ export function auditBuildAssetBudget({
       files: [],
       filesOverBudget: [],
       totalGzipBytes: 0,
+      maxInitialGzipBytes: targets.maxInitialGzipBytes,
+      maxDeferredGameEngineGzipBytes: targets.maxDeferredGameEngineGzipBytes,
       maxTotalGzipBytes: targets.maxTotalGzipBytes,
     };
   }
@@ -93,14 +99,25 @@ export function auditBuildAssetBudget({
     };
   });
   const totalGzipBytes = files.reduce((total, file) => total + file.gzipBytes, 0);
-  const filesOverBudget = files.filter((file) => file.maxGzipBytes && file.gzipBytes > file.maxGzipBytes);
+  const engineFiles = files.filter((file) => isDeferredGameEngineChunk(file.file));
+  const initialGzipBytes = files.filter((file) => !isDeferredGameEngineChunk(file.file)).reduce((total, file) => total + file.gzipBytes, 0);
+  const deferredGameEngineGzipBytes = engineFiles.reduce((total, file) => total + file.gzipBytes, 0);
+  const filesOverBudget = files.filter((file) => file.maxGzipBytes && file.gzipBytes > file.maxGzipBytes && !isDeferredGameEngineChunk(file.file));
+  const engineOverBudget = deferredGameEngineGzipBytes > targets.maxDeferredGameEngineGzipBytes;
+  const initialOverBudget = initialGzipBytes > targets.maxInitialGzipBytes;
   const totalOverBudget = totalGzipBytes > targets.maxTotalGzipBytes;
 
   return {
-    status: filesOverBudget.length || totalOverBudget ? 'needs-attention' : 'on-target',
+    status: filesOverBudget.length || engineOverBudget || initialOverBudget || totalOverBudget ? 'needs-attention' : 'on-target',
     files,
     filesOverBudget,
     totalGzipBytes,
+    initialGzipBytes,
+    maxInitialGzipBytes: targets.maxInitialGzipBytes,
+    initialOverBudget,
+    deferredGameEngineGzipBytes,
+    maxDeferredGameEngineGzipBytes: targets.maxDeferredGameEngineGzipBytes,
+    engineOverBudget,
     maxTotalGzipBytes: targets.maxTotalGzipBytes,
     totalOverBudget,
   };
@@ -160,6 +177,10 @@ function getAssetType(file) {
   return 'asset';
 }
 
+function isDeferredGameEngineChunk(file) {
+  return /(?:^|\/)AdventureWorld-[^/]+\.js$/.test(file);
+}
+
 function getAssetBudget(type, targets) {
   if (type === 'javascript') return targets.maxJavaScriptGzipBytes;
   if (type === 'css') return targets.maxCssGzipBytes;
@@ -198,7 +219,9 @@ function printAudit(audit) {
   console.log(`Web performance audit: ${audit.status}`);
   console.log(`Forbidden heavy dependencies: ${audit.dependencies.forbiddenFound.map((dependency) => dependency.name).join(', ') || 'none'}`);
   console.log(`Animation files over budget: ${audit.motion.filesOverBudget.map((file) => file.file).join(', ') || 'none'}`);
-  console.log(`Built assets: ${audit.assets.status} (${audit.assets.totalGzipBytes} gzip bytes / ${audit.assets.maxTotalGzipBytes} budget)`);
+  console.log(`Initial shell: ${audit.assets.initialGzipBytes} gzip bytes / ${audit.assets.maxInitialGzipBytes} budget`);
+  console.log(`Deferred game engine: ${audit.assets.deferredGameEngineGzipBytes} gzip bytes / ${audit.assets.maxDeferredGameEngineGzipBytes} budget`);
+  console.log(`Built assets: ${audit.assets.status} (${audit.assets.totalGzipBytes} gzip bytes / ${audit.assets.maxTotalGzipBytes} package budget)`);
   console.log(`Asset files over budget: ${audit.assets.filesOverBudget.map((file) => file.file).join(', ') || 'none'}`);
 }
 

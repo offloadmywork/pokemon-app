@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Home from "@/pages/Home";
 import Browse from "@/pages/Browse";
 import Collection from "@/pages/Collection";
@@ -6,13 +6,16 @@ import TeamPage from "@/pages/TeamPage";
 import Leaderboards from "@/pages/Leaderboards";
 import { featureFlags } from "@/config/featureFlags";
 import { pokemonAPI } from "@/api/client";
-import { Home as HomeIcon, Map, Shield, Star, Trophy, Volume2, VolumeX } from "lucide-react";
+import { Home as HomeIcon, Map, Mountain, Shield, Star, Trophy, Volume2, VolumeX } from "lucide-react";
 import { isMuted, setMuted as setMutedState, toggleMuted, playSfx } from "@/game/audio";
 import { getVolume, setVolume, hasSoundHintBeenSeen, markSoundHintSeen } from "@/game/music";
+
+const AdventureWorld = lazy(() => import('@/components/AdventureWorld'));
 
 const primaryTabs = [
   { key: 'home', label: 'Home', icon: HomeIcon },
   { key: 'browse', label: 'Map', icon: Map },
+  { key: 'adventure', label: 'World', icon: Mountain },
   { key: 'collection', label: 'Collection', icon: Star },
   { key: 'team', label: 'Team', icon: Shield, page: 'team' },
   { key: 'leaderboards', label: 'Rankings', icon: Trophy, feature: 'leaderboards' },
@@ -20,6 +23,7 @@ const primaryTabs = [
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [worldEncounterToken, setWorldEncounterToken] = useState(0);
   const [muted, setMuted] = useState(() => isMuted());
   const [volume, setVolumeState] = useState(() => getVolume());
   const [showSoundHint, setShowSoundHint] = useState(() => !isMuted() && !hasSoundHintBeenSeen());
@@ -100,7 +104,18 @@ export default function App() {
         style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >
         {currentPage === 'home' && <Home onNavigate={navigate} />}
-        {currentPage === 'browse' && <Browse onNavigate={navigate} />}
+        {currentPage === 'browse' && <Browse onNavigate={navigate} worldEncounterToken={worldEncounterToken} />}
+        {currentPage === 'adventure' && (
+          <Suspense fallback={<div className="min-h-screen bg-[#10263a] p-8 font-mono text-[#fff5ca]">Loading Verdant Path…</div>}>
+            <AdventureWorld
+              onNavigate={navigate}
+              onEncounter={() => {
+                setWorldEncounterToken((token) => token + 1);
+                navigate('browse');
+              }}
+            />
+          </Suspense>
+        )}
         {currentPage === 'collection' && <Collection onNavigate={navigate} />}
         {currentPage === 'team' && <TeamPage onNavigate={navigate} apiClient={pokemonAPI} />}
         {currentPage === 'leaderboards' && featureFlags.leaderboards && (
