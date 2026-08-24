@@ -151,6 +151,11 @@ export default class VerdantPathScene extends Phaser.Scene {
     // Tree sway: a 1px horizontal-shift variant so canopies breathe in the
     // wind when the scene alternates between the two frames.
     stampStepFrame('tree', 'tree-sway', 1, 0);
+    paint('leaf', (g) => {
+      // A tiny wind-blown leaf for grass rustle feedback.
+      g.fillStyle(0x457a3c).fillEllipse(16, 16, 7, 4);
+      g.lineStyle(1, 0x5c9449, 0.9); g.lineBetween(13, 16, 19, 15);
+    });
     paint('moonwell', (g) => {
       // Stone-ringed pool: layered ring stones, deep water, soft inner glow.
       g.fillStyle(PAL.wellStone).fillCircle(16, 16, 15);
@@ -325,6 +330,24 @@ export default class VerdantPathScene extends Phaser.Scene {
       if (tile.texture.key !== waterFrame) tile.setTexture(waterFrame);
     }
     if (isVerdantEncounterTile(currentTileX, currentTileY) && movement.lengthSq() > 0) {
+      // Grass rustle: little leaves kick up while wading through tall grass.
+      if (!this.reducedMotion && time - (this.rustleAt || 0) > 260) {
+        this.rustleAt = time;
+        const leaf = this.add.image(
+          this.player.x + Phaser.Math.Between(-8, 8),
+          this.player.y + 6,
+          'leaf',
+        ).setDepth(12).setAlpha(0.9);
+        this.tweens.add({
+          targets: leaf,
+          y: leaf.y - 10,
+          angle: Phaser.Math.Between(-40, 40),
+          alpha: 0,
+          duration: 420,
+          ease: 'Sine.easeOut',
+          onComplete: () => leaf.destroy(),
+        });
+      }
       // Time-based roll: identical encounter odds on 60 Hz and 120 Hz screens.
       if (time - this.lastEncounterRollAt > 400) {
         this.lastEncounterRollAt = time;
