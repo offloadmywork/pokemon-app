@@ -208,25 +208,22 @@ export default class VerdantPathScene extends Phaser.Scene {
     }
     const bossX = VERDANT_PATH.bossArena.x + 2;
     const bossY = VERDANT_PATH.bossArena.y + 1;
+    // Reduced-motion players get calm feedback: no shake, flash, or idle tweens.
+    // Must be set before any tween is created below.
+    this.reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.bossSprite = this.add.image(bossX * TILE + TILE / 2, bossY * TILE + TILE / 2, 'warden').setDepth(6);
     if (!this.reducedMotion && !this.bossDefeated) {
       this.tweens.add({ targets: this.bossSprite, y: '-=4', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
-    this.cacheSprite = this.add.image(VERDANT_PATH.rewardCache.x * TILE + TILE / 2, VERDANT_PATH.rewardCache.y * TILE + TILE / 2, 'cache-sealed').setDepth(6);
-    this.cacheOpened = false;
     if (this.registry.get('verdant-cache-opened')) this.cacheOpened = true;
     if (this.bossDefeated) this.cacheSprite.setTexture('cache-open');
-    // Reduced-motion players get calm feedback: no shake, flash, or idle tweens.
-    this.reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.announceObjective();
     this.add.text(bossX * TILE - 26, bossY * TILE - 22, 'Grove Warden', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#ffd9c2', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
 
     // Authored pacing: a small guide sprite hovers toward the objective.
     this.guidanceArrow = this.add.text(0, 0, '➤', { fontSize: '14px', color: '#ffe9a8', stroke: '#172316', strokeThickness: 3 }).setDepth(19).setAlpha(0.9);
-    this.cacheOpened = false;
-    this.announceObjective();
   }
 
   announceObjective() {
@@ -293,7 +290,8 @@ export default class VerdantPathScene extends Phaser.Scene {
         playSfx('boss-roar');
         vibrate([60, 40, 90]);
         this.registry.events.emit('verdant-boss');
-      } else if (tileEvent === 'reward') {
+      } else if (tileEvent === 'reward' && !this.cacheOpened) {
+        // The cache opens exactly once — no farming potions by idling on it.
         this.cacheSprite.setTexture('cache-open');
         this.cacheOpened = true;
         if (!this.reducedMotion) this.cameras.main.flash(240, 255, 236, 170);
