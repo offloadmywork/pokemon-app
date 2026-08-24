@@ -525,6 +525,7 @@
 - ✅ A Verdant Path encounter now hands off exactly once into the existing server-rolled battle and capture flow, with BDD coverage for the complete transition.
 - ✅ A mobile Trail Compass supplies press-and-hold Phaser movement with labeled controls and keyboard activation; its deterministic input rule is unit-tested.
 - ✅ The Grove Warden now guards the moonwell: entering its arena triggers a boss encounter signal with camera shake, and the sealed reward cache opens only after a boss-defeat flag, with deterministic world-rule tests.
+- ✅ A confirmed Grove Warden battle victory now unseals the reward cache: the world hands off a boss-token battle through the established boss flow, victory flips a persisted flag, and the scene renders the opened cache on return — covered by deterministic boss-rule tests.
 
 ### Next
-- Wire a real boss battle victory to the `verdant-boss-defeated` flag so the reward cache is reachable in play, then add authored start-to-boss pacing and production art.
+- Authored start-to-boss pacing (guiding landmarks, gate feedback) and the first original production-art pass; then desktop/mobile playthrough reviews.
