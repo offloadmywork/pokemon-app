@@ -552,9 +552,15 @@
 - ✅ `GET /api/health` (2026-08-25): unauthenticated uptime-monitor probe that pings D1 (`SELECT 1`), returns `{ status, database, timestamp }`, responds 503 + degraded without leaking internal errors when the database is unreachable. BDD-covered.
 
 ### Next (judge-ranked)
+0. ✅ **Verdant Path encounter grace window (2026-08-25):** tall grass now waits three seconds after a battle handoff before another roll, while preserving the time-based cadence and never rolling while idle. BDD-covered.
 1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).
 2. ~~World-state accessibility summary~~ ✅ shipped (sr-only live region mirroring boss/cache state).
 3. ~~Palette/sprite unification pass~~ ✅ shipped (single shared PAL vocabulary across all procedural textures).
+
+### Quality Gate (2026-08-25): **CONDITIONAL**
+- ✅ Automated evidence: Verdant Path rules + live Phaser boot smoke are green; production build is green and the deferred engine remains within its package budget.
+- ✅ Accessibility/motion: encounter grace is logic-only and preserves the existing reduced-motion path.
+- ⏳ Manual desktop/mobile world playthrough and a fresh independent review remain required; the managed browser cannot reach the local preview in this environment.
 
 ### Next milestone: production art pipeline — DECIDED (2026-08-24)
 - Evaluated CC0 packs / AI-generated sprites / enhanced procedural against the 358KB deferred-engine budget (~14KB headroom) and license constraints.

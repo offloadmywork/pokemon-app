@@ -72,6 +72,25 @@ export function isVerdantEncounterTile(x, y, zone = VERDANT_PATH) {
 }
 
 /**
+ * Encounter pacing is driven by elapsed time, rather than rendered frames.
+ * After the world hands a player into battle, a small grace window prevents
+ * an immediate second handoff when they return while still in tall grass.
+ */
+export function canTriggerVerdantEncounter({
+  time,
+  lastRollAt = 0,
+  lastEncounterAt = 0,
+  moving = true,
+  rollIntervalMs = 400,
+  graceWindowMs = 3000,
+} = {}) {
+  if (!moving || !Number.isFinite(time)) return false;
+  const rollReady = time - lastRollAt > rollIntervalMs;
+  const graceElapsed = !lastEncounterAt || time - lastEncounterAt >= graceWindowMs;
+  return rollReady && graceElapsed;
+}
+
+/**
  * Stable decorative variant per tile for the art pass: a tiny integer hash
  * spreads flowers, pebbles, and grass tufts deterministically so the meadow
  * never looks flat-painted or random between visits.

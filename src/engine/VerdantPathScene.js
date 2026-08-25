@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
+import { VERDANT_PATH, canTriggerVerdantEncounter, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from '@/game/verdantPath';
 import { playSfx, vibrate } from '@/game/audio';
 
 const { tileSize: TILE, width: MAP_WIDTH, height: MAP_HEIGHT, spawn } = VERDANT_PATH;
@@ -363,7 +363,12 @@ export default class VerdantPathScene extends Phaser.Scene {
         });
       }
       // Time-based roll: identical encounter odds on 60 Hz and 120 Hz screens.
-      if (time - this.lastEncounterRollAt > 400) {
+      if (canTriggerVerdantEncounter({
+        time,
+        lastRollAt: this.lastEncounterRollAt,
+        lastEncounterAt: this.lastEncounterAt,
+        moving: movement.lengthSq() > 0,
+      })) {
         this.lastEncounterRollAt = time;
         if (Math.random() < 0.15) {
           this.lastEncounterAt = time;

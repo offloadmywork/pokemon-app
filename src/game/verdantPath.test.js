@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VERDANT_PATH, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
+import { VERDANT_PATH, canTriggerVerdantEncounter, getVerdantFacing, getVerdantGuidanceStep, getVerdantMovementIntent, getVerdantObjective, getVerdantSlideVelocity, getVerdantTileEvent, getVerdantTileVariant, isVerdantEncounterTile, isVerdantWalkable } from './verdantPath';
 
 describe('Verdant Path world rules', () => {
   it('keeps the player spawn inside a walkable route', () => {
@@ -112,5 +112,17 @@ describe('Verdant Path wall-slide rules', () => {
   it('stops fully when cornered', () => {
     const result = getVerdantSlideVelocity(VERDANT_PATH.tileSize * 1.5, VERDANT_PATH.tileSize * 1.5, -125, -125);
     expect(result).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('Verdant Path encounter pacing', () => {
+  it('gives players a grace window after a battle handoff before another grass roll', () => {
+    expect(canTriggerVerdantEncounter({ time: 10_000, lastRollAt: 9_500, lastEncounterAt: 7_000 })).toBe(true);
+    expect(canTriggerVerdantEncounter({ time: 10_000, lastRollAt: 9_500, lastEncounterAt: 8_000 })).toBe(false);
+  });
+
+  it('keeps encounter roll cadence time-based and ignores idle grass', () => {
+    expect(canTriggerVerdantEncounter({ time: 10_000, lastRollAt: 9_700, lastEncounterAt: 0 })).toBe(false);
+    expect(canTriggerVerdantEncounter({ time: 10_000, lastRollAt: 9_500, lastEncounterAt: 0, moving: false })).toBe(false);
   });
 });
