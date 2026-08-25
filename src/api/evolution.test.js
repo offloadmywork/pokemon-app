@@ -15,6 +15,9 @@ beforeEach(() => {
   })();
   localStorage.clear();
   pokemonAPI.userId = null;
+  // Preset a session so getUserId() does not fire an extra mint request
+  // that would consume this suite's two-response fetch mocks.
+  pokemonAPI.sessionToken = 'test-session-token';
   vi.stubGlobal('crypto', { ...crypto, randomUUID: vi.fn(() => 'test-uuid') });
 });
 

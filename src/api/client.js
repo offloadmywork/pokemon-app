@@ -9,6 +9,30 @@ const USER_ID_KEY = 'pokemon-user-id';
 class PokemonAPI {
   constructor() {
     this.userId = null;
+    this.sessionToken = null;
+    this.needsSessionMint = false;
+  }
+
+  // Exchange the local user id for a server-signed session token.
+  // Best-effort: failures leave the token unset; protected routes will 401 and
+  // the next getUserId() call retries the mint.
+  async mintSessionToken() {
+    if (!this.userId) return null;
+    try {
+      const response = await fetch(`${API_BASE}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: this.userId }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      this.sessionToken = data?.token || null;
+      this.needsSessionMint = false;
+      return this.sessionToken;
+    } catch (err) {
+      console.error('Failed to mint session token:', err);
+      return null;
+    }
   }
 
   // Get or create user ID
@@ -35,6 +59,9 @@ class PokemonAPI {
     }
     
     this.userId = userId;
+    if (!this.sessionToken) {
+      await this.mintSessionToken();
+    }
     return userId;
   }
 
@@ -53,7 +80,13 @@ class PokemonAPI {
   }
 
   setActiveUserId(userId) {
+    const changed = this.userId !== userId;
     this.userId = userId;
+    if (changed) {
+      // New identity: drop any token minted for the previous user.
+      this.sessionToken = null;
+      this.needsSessionMint = true;
+    }
     try {
       localStorage.setItem(USER_ID_KEY, userId);
     } catch {
@@ -62,13 +95,20 @@ class PokemonAPI {
   }
 
   async request(endpoint, options = {}) {
+    if (this.needsSessionMint && !this.sessionToken) {
+      await this.mintSessionToken();
+    }
     const url = `${API_BASE}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+    if (this.sessionToken) {
+      headers.Authorization = `Bearer ${this.sessionToken}`;
+    }
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {

@@ -19,6 +19,9 @@ describe('Pokemon API Client', () => {
     global.localStorage = localStorageMock;
     localStorageMock.clear();
     pokemonAPI.userId = null;
+    // Preset a session so getUserId() does not fire an extra mint request
+    // that would consume this suite's single-response fetch mocks.
+    pokemonAPI.sessionToken = 'test-session-token';
     
     // Mock crypto.randomUUID for tests that trigger getUserId
     vi.stubGlobal('crypto', {
@@ -40,7 +43,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/pokemon/1'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(mockData);
@@ -332,12 +335,14 @@ describe('Pokemon API Client', () => {
         headers: { 'Authorization': 'Bearer token123' },
       });
 
+      // The client's session token takes precedence over caller-supplied
+      // Authorization headers; the server derives identity from it anyway.
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer token123',
+            'Authorization': 'Bearer test-session-token',
           },
         })
       );
@@ -480,7 +485,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/pvp/matches?user_id=test-uuid&limit=3'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(historyPayload);
@@ -503,7 +508,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/player/wallet?user_id=test-uuid'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(walletPayload);
@@ -564,7 +569,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/player/upgrades?user_id=test-uuid'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(upgradesPayload);
@@ -625,7 +630,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/player/cosmetics?user_id=test-uuid'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(cosmeticsPayload);
@@ -717,7 +722,7 @@ describe('Pokemon API Client', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/player/achievements?user_id=test-uuid'),
         expect.objectContaining({
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result).toEqual(achievementsPayload);

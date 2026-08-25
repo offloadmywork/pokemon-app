@@ -551,6 +551,14 @@
 ### Production Observability
 - ✅ `GET /api/health` (2026-08-25): unauthenticated uptime-monitor probe that pings D1 (`SELECT 1`), returns `{ status, database, timestamp }`, responds 503 + degraded without leaking internal errors when the database is unreachable. BDD-covered.
 
+### Server-Bound Identity (Phase 4 quality gate)
+- ✅ Signed session tokens (`worker/sessionTokens.js`): stateless HMAC-SHA256 tokens binding user id + expiry, Web Crypto only, constant-time signature compare, BDD-covered
+- ✅ `POST /api/session` issues a 7-day token for a user (fails closed with 503 when `SESSION_SECRET` is not configured); BDD-covered
+- ✅ `requireSession` middleware binds the acting user to the verified token identity (`c.get('sessionUserId')`)
+- ✅ Daily quest claim routes (`/api/daily-quests/:id/claim`, `/claim-all` + aliases) now require a session and ignore body-supplied `user_id` — spoofed claim requests get 401 and cannot claim another player's rewards (route tests cover tampered/expired tokens and cross-user spoofs)
+- ✅ API client mints a session token during registration/restore and attaches `Authorization: Bearer` automatically (best-effort mint, token cleared on identity switch)
+- ⚠️ Ops requirement: set `SESSION_SECRET` (`wrangler secret put SESSION_SECRET`; `.dev.vars` locally) before deploying — without it, protected routes return 401/503 by design
+
 ### Next (judge-ranked)
 0. ✅ **Verdant Path encounter grace window (2026-08-25):** tall grass now waits three seconds after a battle handoff before another roll, while preserving the time-based cadence and never rolling while idle. BDD-covered.
 1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).

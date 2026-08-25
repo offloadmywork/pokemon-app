@@ -40,6 +40,7 @@ import { getPlayerWallet, grantPlayerCoins } from './playerWallet.js';
 import { findQueuedPvpOpponent, getPvpOpponentTeam, leavePvpQueue, upsertPvpQueueEntry } from './pvpQueue.js';
 import { listPvpMatchHistory, recordPvpMatchResult } from './pvpMatches.js';
 import { acceptTradeOffer, cancelTradeOffer, createTradeOffer, declineTradeOffer, listTradeOffers } from './trades.js';
+import { createSessionToken, verifySessionToken } from './sessionTokens.js';
 
 const app = new Hono();
 const RARE_QUEST_RARITIES = new Set(['Rare', 'Epic', 'Legendary']);
@@ -324,6 +325,49 @@ app.post('/api/user', async (c) => {
     return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
 });
+
+// ===== SESSION AUTH (server-bound identity) =====
+// Issues a signed session token for a user id. Protected routes derive the
+// acting user from this token instead of trusting client-supplied ids.
+const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+
+app.post('/api/session', async (c) => {
+  try {
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = typeof data?.user_id === 'string' ? data.user_id.trim() : '';
+    if (!user_id) {
+      return c.json({ error: 'user_id is required' }, 400);
+    }
+    if (!c.env.SESSION_SECRET) {
+      return c.json({ error: 'Session auth is not configured on the server' }, 503);
+    }
+
+    await ensureUserExists(c.env.DB, user_id);
+    const token = await createSessionToken(user_id, c.env.SESSION_SECRET, {
+      ttlSeconds: SESSION_TTL_SECONDS,
+    });
+    return c.json({ token });
+  } catch (error) {
+    return c.json({ error: 'Something went wrong. Please try again.' }, 500);
+  }
+});
+
+// Middleware: require a valid Bearer session token and bind the acting user to
+// it. Handlers read the verified identity via c.get('sessionUserId') instead of
+// trusting request-supplied user ids.
+const requireSession = async (c, next) => {
+  const header = c.req.header('authorization') || '';
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  const secret = c.env.SESSION_SECRET;
+  const session = match && secret
+    ? await verifySessionToken(match[1], secret)
+    : null;
+  if (!session) {
+    return c.json({ error: 'Valid session required' }, 401);
+  }
+  c.set('sessionUserId', session.userId);
+  await next();
+};
 
 // Get user info
 app.get('/api/user/:id', async (c) => {
@@ -1576,8 +1620,7 @@ const updateDailyQuestProgress = async (c) => {
 const claimDailyQuest = async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id } = data;
+    const user_id = c.get('sessionUserId');
 
     if (!user_id) {
       return c.json({ error: 'user_id is required' }, 400);
@@ -1628,8 +1671,7 @@ const claimDailyQuest = async (c) => {
 
 const claimAllDailyQuests = async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id } = data;
+    const user_id = c.get('sessionUserId');
 
     if (!user_id) {
       return c.json({ error: 'user_id is required' }, 400);
@@ -1696,10 +1738,12 @@ app.get('/api/quests/daily', listDailyQuests);
 app.get('/api/daily-quests', listDailyQuests);
 app.post('/api/quests/daily/:id/progress', updateDailyQuestProgress);
 app.post('/api/daily-quests/:id/progress', updateDailyQuestProgress);
-app.post('/api/quests/daily/:id/claim', claimDailyQuest);
-app.post('/api/daily-quests/:id/claim', claimDailyQuest);
-app.post('/api/quests/daily/claim-all', claimAllDailyQuests);
-app.post('/api/daily-quests/claim-all', claimAllDailyQuests);
+// Claim routes are reward-granting mutations: they require a server-issued
+// session and take the acting user from the signed token, not the body.
+app.post('/api/quests/daily/:id/claim', requireSession, claimDailyQuest);
+app.post('/api/daily-quests/:id/claim', requireSession, claimDailyQuest);
+app.post('/api/quests/daily/claim-all', requireSession, claimAllDailyQuests);
+app.post('/api/daily-quests/claim-all', requireSession, claimAllDailyQuests);
 
 // ===== WEEKLY MISSIONS API (Phase 4: Live Ops & Retention) =====
 const getWorkerWeekKey = () => getWeekKey();

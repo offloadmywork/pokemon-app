@@ -22,6 +22,8 @@ describe('PokemonAPI User Management', () => {
     vi.clearAllMocks();
     localStorageMock.clear();
     pokemonAPI.userId = null; // Reset cached userId
+    pokemonAPI.sessionToken = null;
+    pokemonAPI.needsSessionMint = false;
     
     // Setup mocks
     global.localStorage = localStorageMock;
@@ -43,10 +45,15 @@ describe('PokemonAPI User Management', () => {
 
   describe('getUserId', () => {
     it('should generate and store new user ID if none exists', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: 'signed-token' }),
+        });
 
       const userId = await pokemonAPI.getUserId();
       
@@ -63,11 +70,16 @@ describe('PokemonAPI User Management', () => {
 
     it('should use existing user ID from localStorage', async () => {
       localStorageMock.setItem('pokemon-user-id', 'existing-user-id');
-      
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ user_id: 'existing-user-id', existing: true }),
-      });
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user_id: 'existing-user-id', existing: true }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: 'signed-token' }),
+        });
 
       const userId = await pokemonAPI.getUserId();
       
@@ -76,16 +88,22 @@ describe('PokemonAPI User Management', () => {
     });
 
     it('should cache user ID after first call', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
-      });
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: 'signed-token' }),
+        });
 
       const userId1 = await pokemonAPI.getUserId();
       const userId2 = await pokemonAPI.getUserId();
       
       expect(userId1).toBe(userId2);
-      expect(global.fetch).toHaveBeenCalledTimes(1); // Only called once
+      // Registration + session mint on the cold path, then nothing further.
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should handle backend registration failure gracefully', async () => {
@@ -95,6 +113,43 @@ describe('PokemonAPI User Management', () => {
       
       expect(userId).toBe('test-uuid-12345');
       expect(localStorageMock.setItem).toHaveBeenCalledWith('pokemon-user-id', 'test-uuid-12345');
+    });
+
+    it('mints a session token during first registration and sends it on requests', async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user_id: 'test-uuid-12345', existing: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: 'signed-token' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ([]),
+        });
+
+      await pokemonAPI.getUserId();
+      expect(pokemonAPI.sessionToken).toBe('signed-token');
+
+      await pokemonAPI.getCaughtPokemon();
+      const apiCall = global.fetch.mock.calls[2];
+      expect(apiCall[1].headers.Authorization).toBe('Bearer signed-token');
+    });
+
+    it('re-mints the session token when the active user changes', async () => {
+      pokemonAPI.sessionToken = 'old-user-token';
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ token: 'new-user-token' }),
+      });
+
+      pokemonAPI.setActiveUserId('restored-user');
+
+      // Old token is invalidated immediately; the lazy request path re-mints.
+      expect(pokemonAPI.sessionToken).toBeNull();
+      expect(pokemonAPI.needsSessionMint).toBe(true);
     });
 
     it('should expose the current user ID as a trainer recovery code', async () => {
