@@ -2806,6 +2806,19 @@ app.post('/api/player/sessions', async (c) => {
   }
 });
 
+// Production observability: unauthenticated health probe for uptime monitors.
+// Pings D1 without touching user data; never leaks internal error details.
+app.get('/api/health', async (c) => {
+  const timestamp = new Date().toISOString();
+
+  try {
+    await c.env.DB.prepare('SELECT 1').bind().all();
+    return c.json({ status: 'ok', database: 'ok', timestamp });
+  } catch (error) {
+    return c.json({ status: 'degraded', database: 'error', timestamp }, 503);
+  }
+});
+
 app.get('/api/metrics/kpis', async (c) => {
   try {
     const now = c.req.query('now') || new Date().toISOString();

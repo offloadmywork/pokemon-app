@@ -545,7 +545,11 @@
 - ✅ TDZ crash: `moving` was referenced before declaration in update() — walk cycle threw on every tick.
 - ✅ `cacheSprite` creation was accidentally dropped in the drawWorld rewrite — scene crashed on boot via announceObjective(). Recreated at landmark position; objective read now uses the flag, not texture sniffing.
 - Root cause: no test boots the live Phaser scene. Queued: headless scene-boot smoke test (judge item 3) so "tests green" can never again mask an unbootable game.
+- ✅ Headless scene-boot smoke test shipped (2026-08-25): the live Verdant Path scene now boots under jsdom in CI; judge item 3 closed.
 - Lesson recorded: every runtime-scene edit needs a real browser/preview check before commit — unit tests alone don't cover Phaser lifecycle.
+
+### Production Observability
+- ✅ `GET /api/health` (2026-08-25): unauthenticated uptime-monitor probe that pings D1 (`SELECT 1`), returns `{ status, database, timestamp }`, responds 503 + degraded without leaking internal errors when the database is unreachable. BDD-covered.
 
 ### Next (judge-ranked)
 1. ~~Footstep + ambient audio layer~~ ✅ shipped (footsteps, throttled, reduced-motion aware).
