@@ -98,18 +98,40 @@ class PokemonAPI {
     if (this.needsSessionMint && !this.sessionToken) {
       await this.mintSessionToken();
     }
+    return this.#requestWithReauth(endpoint, options, false);
+  }
+
+  // Send the request; on a 401, refresh the session token once and retry.
+  // Guards against loops via the isRetry flag.
+  async #requestWithReauth(endpoint, options = {}, isRetry) {
+    if (this.needsSessionMint && !this.sessionToken) {
+      await this.mintSessionToken();
+    }
     const url = `${API_BASE}${endpoint}`;
-    const headers = {
+    // The server-derived session token takes precedence over any
+    // caller-supplied Authorization header.
+    const buildHeaders = (token) => ({
       'Content-Type': 'application/json',
       ...options.headers,
-    };
-    if (this.sessionToken) {
-      headers.Authorization = `Bearer ${this.sessionToken}`;
-    }
-    const response = await fetch(url, {
-      ...options,
-      headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
+    let response = await fetch(url, {
+      ...options,
+      headers: buildHeaders(this.sessionToken),
+    });
+
+    // Session went stale (expiry, secret rotation): re-mint and retry once.
+    if (response.status === 401 && this.userId && !isRetry) {
+      this.sessionToken = null;
+      this.needsSessionMint = true;
+      await this.mintSessionToken();
+      if (this.sessionToken) {
+        response = await fetch(url, {
+          ...options,
+          headers: buildHeaders(this.sessionToken),
+        });
+      }
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));

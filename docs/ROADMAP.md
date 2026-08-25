@@ -563,6 +563,7 @@
 - ✅ Automated accessibility gate started (2026-08-26): axe-core audits (`src/accessibility.a11y.test.jsx`) run in CI on core Home panels (Daily Quests, Weekly Missions, Shop) and fail the suite on serious/critical violations; extend to remaining pages incrementally
 - ✅ Phase 4 quality-gate finding "server-bound identity/integrity" closed: all reward-granting and state-mutating routes now derive the acting user from a server-signed session
 - ✅ API client mints a session token during registration/restore and attaches `Authorization: Bearer` automatically (best-effort mint, token cleared on identity switch)
+- ✅ Client session resilience (2026-08-26): a 401 clears the stale token, re-mints once, and retries the request exactly once — no loops when re-auth also fails; BDD-covered
 - Remaining unauthenticated: read-only routes (roster, wallet, history) — intentional for now; revisit if read-scoping becomes a product requirement
 - ⚠️ Ops requirement: set `SESSION_SECRET` (`wrangler secret put SESSION_SECRET`; `.dev.vars` locally) before deploying — without it, protected routes return 401/503 by design
 
