@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 function createMasteryDbMock({ caughtCount = 12, claimedRows = [] } = {}) {
   const calls = [];
@@ -38,7 +39,7 @@ describe('Collection Mastery API', () => {
 
     const response = await app.request('/api/mastery?user_id=user-1', {
       method: 'GET',
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -55,9 +56,9 @@ describe('Collection Mastery API', () => {
 
     const first = await app.request('/api/mastery/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', tier_id: 'silver' }),
-    }, { DB: db });
+    }, sessionEnv(db));
     expect(first.status).toBe(200);
     const firstBody = await first.json();
     expect(firstBody.wallet.coins).toBeGreaterThan(0);
@@ -70,9 +71,9 @@ describe('Collection Mastery API', () => {
     // Claiming again must be rejected.
     const second = await app.request('/api/mastery/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', tier_id: 'silver' }),
-    }, { DB: db });
+    }, sessionEnv(db));
     expect(second.status).toBe(400);
   });
 
@@ -81,9 +82,9 @@ describe('Collection Mastery API', () => {
 
     const response = await app.request('/api/mastery/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', tier_id: 'master' }),
-    }, { DB: db });
+    }, sessionEnv(db));
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toMatch(/not reached/i);

@@ -980,10 +980,11 @@ app.get('/api/player/wallet', async (c) => {
 
 // ===== SHOP API =====
 // Purchase an item with persisted player wallet coins
-app.post('/api/shop/purchase', async (c) => {
+app.post('/api/shop/purchase', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, item_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { item_id } = data;
     const quantity = Number(data.quantity ?? 1);
 
     if (!user_id || !item_id) {
@@ -1062,10 +1063,11 @@ app.get('/api/player/upgrades', async (c) => {
 });
 
 // Purchase a permanent trainer upgrade with persisted wallet coins
-app.post('/api/upgrades/purchase', async (c) => {
+app.post('/api/upgrades/purchase', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, upgrade_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { upgrade_id } = data;
 
     if (!user_id || !upgrade_id) {
       return c.json({ error: 'user_id and upgrade_id are required' }, 400);
@@ -1148,10 +1150,11 @@ app.get('/api/player/cosmetics', async (c) => {
 });
 
 // Purchase a cosmetic with persisted player wallet currency
-app.post('/api/cosmetics/purchase', async (c) => {
+app.post('/api/cosmetics/purchase', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, cosmetic_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { cosmetic_id } = data;
 
     if (!user_id || !cosmetic_id) {
       return c.json({ error: 'user_id and cosmetic_id are required' }, 400);
@@ -1198,10 +1201,11 @@ app.post('/api/cosmetics/purchase', async (c) => {
 });
 
 // Equip a persisted owned cosmetic, clearing other cosmetics in the same slot
-app.post('/api/cosmetics/equip', async (c) => {
+app.post('/api/cosmetics/equip', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, cosmetic_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { cosmetic_id } = data;
 
     if (!user_id || !cosmetic_id) {
       return c.json({ error: 'user_id and cosmetic_id are required' }, 400);
@@ -1288,10 +1292,11 @@ app.get('/api/player/achievements', async (c) => {
 });
 
 // Claim a reached achievement once and persist wallet rewards
-app.post('/api/achievements/claim', async (c) => {
+app.post('/api/achievements/claim', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, achievement_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { achievement_id } = data;
 
     if (!user_id || !achievement_id) {
       return c.json({ error: 'user_id and achievement_id are required' }, 400);
@@ -1813,10 +1818,11 @@ app.get('/api/mastery', async (c) => {
   }
 });
 
-app.post('/api/mastery/claim', async (c) => {
+app.post('/api/mastery/claim', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, tier_id } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { tier_id } = data;
     if (!user_id || !tier_id) {
       return c.json({ error: 'user_id and tier_id are required' }, 400);
     }
@@ -1878,10 +1884,11 @@ app.get('/api/tower', async (c) => {
   }
 });
 
-app.post('/api/tower/complete', async (c) => {
+app.post('/api/tower/complete', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, floor } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+    const { floor } = data;
 
     if (!user_id) {
       return c.json({ error: 'user_id is required' }, 400);

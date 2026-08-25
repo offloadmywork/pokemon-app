@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 function createDbMock({
   walletRows = [],
@@ -43,7 +44,7 @@ describe('Achievement Worker API', () => {
 
     const response = await app.request('/api/player/achievements?user_id=user-1', {
       method: 'GET',
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -76,9 +77,9 @@ describe('Achievement Worker API', () => {
 
     const response = await app.request('/api/achievements/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', achievement_id: 'collect_25' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -108,9 +109,9 @@ describe('Achievement Worker API', () => {
 
     const unreachedResponse = await app.request('/api/achievements/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', achievement_id: 'collect_10' }),
-    }, { DB: unreached.db });
+    }, sessionEnv(unreached.db));
 
     expect(unreachedResponse.status).toBe(400);
     await expect(unreachedResponse.json()).resolves.toEqual({ error: 'Achievement is not complete yet.' });
@@ -124,9 +125,9 @@ describe('Achievement Worker API', () => {
 
     const alreadyClaimedResponse = await app.request('/api/achievements/claim', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', achievement_id: 'collect_10' }),
-    }, { DB: alreadyClaimed.db });
+    }, sessionEnv(alreadyClaimed.db));
 
     expect(alreadyClaimedResponse.status).toBe(400);
     await expect(alreadyClaimedResponse.json()).resolves.toEqual({ error: 'Achievement already claimed.' });

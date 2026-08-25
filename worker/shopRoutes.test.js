@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 function createDbMock({
   walletRows = [],
@@ -47,9 +48,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/shop/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', item_id: 'pokeball', quantity: 2 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -90,9 +91,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/shop/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', item_id: 'ultra_ball', quantity: 1 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Not enough coins.' });
@@ -110,7 +111,7 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/player/upgrades?user_id=user-1', {
       method: 'GET',
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -135,9 +136,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/upgrades/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', upgrade_id: 'bag_slots' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -169,9 +170,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/upgrades/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', upgrade_id: 'bag_slots' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Upgrade already maxed.' });
@@ -189,7 +190,7 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/player/cosmetics?user_id=user-1', {
       method: 'GET',
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -214,9 +215,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/cosmetics/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', cosmetic_id: 'trainer_card_bronze' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -247,9 +248,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/cosmetics/purchase', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', cosmetic_id: 'trainer_card_bronze' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Cosmetic already owned.' });
@@ -266,9 +267,9 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/cosmetics/equip', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', cosmetic_id: 'trainer_card_bronze' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -296,12 +297,43 @@ describe('Shop Worker API', () => {
 
     const response = await app.request('/api/cosmetics/equip', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', cosmetic_id: 'trainer_card_bronze' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Cosmetic is not owned.' });
     expect(calls.some((call) => call.type === 'run' && call.sql.includes('UPDATE user_cosmetics'))).toBe(false);
+  });
+});
+
+describe('Shop session enforcement', () => {
+  it('rejects purchases without a valid session token', async () => {
+    const { db } = createDbMock({ walletRows: [{ user_id: 'user-1', coins: 100, shards: 0 }] });
+    const response = await app.request('/api/shop/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: 'user-1', item_id: 'pokeball', quantity: 1 }),
+    }, { DB: db });
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Valid session required' });
+  });
+
+  it('charges the wallet bound to the token, not the body user_id', async () => {
+    const { db, calls } = createDbMock({ walletRows: [{ user_id: 'token-user', coins: 100, shards: 0 }] });
+    const response = await app.request('/api/shop/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('token-user')) },
+      // Body still claims user-1 — must be ignored.
+      body: JSON.stringify({ user_id: 'user-1', item_id: 'pokeball', quantity: 1 }),
+    }, sessionEnv(db));
+
+    expect(response.status).toBe(200);
+    const walletSelects = calls.filter(
+      (call) => call.type === 'all' && call.sql.includes('FROM player_wallet')
+    );
+    expect(walletSelects.length).toBeGreaterThan(0);
+    expect(walletSelects[0].params).toContain('token-user');
   });
 });
