@@ -7,69 +7,82 @@ import { describe, it, expect } from 'vitest';
 import Phaser from 'phaser';
 import VerdantPathScene from './VerdantPathScene.js';
 
-// TODO(boot-smoke): these tests currently hang — Phaser's DOM-ready/texture
-// boot pipeline never completes under jsdom + node-canvas (15s timeout).
-// Skipped so the release gate stays green while the harness is finished in a
-// dedicated session. The underlying TDZ/cache-sprite regressions this test
-// targets ARE covered by unit rules + were fixed in commit 0157d69.
-describe.skip('VerdantPathScene boot smoke', () => {
-if (!globalThis.requestAnimationFrame) {
-  globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
-  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
-}
-
 const SCENE_KEY = 'VerdantPath';
 
 function bootGame() {
-  return new Promise((resolve, reject) => {
-    // Phaser waits for DOMContentLoaded in jsdom. A smoke harness has a DOM
-    // already, so mark it ready before constructing the game.
-    Object.defineProperty(document, 'readyState', { configurable: true, value: 'complete' });
-    const parent = document.createElement('div');
-    document.body.appendChild(parent);
-    let game;
-    try {
-      game = new Phaser.Game({
-        type: Phaser.CANVAS,
-        width: 320,
-        height: 240,
-        parent,
-        // node-canvas is deliberately supplied by Vitest setup rather than
-        // Phaser's browser feature probe.
-        customEnvironment: true,
-        canvas: document.createElement('canvas'),
-        banner: false,
-        audio: { noSound: true },
-        physics: { default: 'arcade', arcade: { debug: false } },
-        render: { pixelArt: true, antialias: false },
-        scene: [VerdantPathScene],
-      });
-    } catch (err) {
-      reject(err);
-      return;
+  // Mark the DOM complete before constructing the game so Phaser's
+  // DOMContentLoaded helper boots synchronously instead of listening for an
+  // event jsdom never fires. Also force visibility: jsdom reports
+  // 'prerender', which makes Phaser's VisibilityHandler emit HIDDEN and
+  // pause every scene right after boot.
+  Object.defineProperty(document, 'readyState', { configurable: true, value: 'complete' });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+  const parent = document.createElement('div');
+  document.body.appendChild(parent);
+  const game = new Phaser.Game({
+    type: Phaser.CANVAS,
+    width: 320,
+    height: 240,
+    parent,
+    // node-canvas is deliberately supplied by Vitest setup rather than
+    // Phaser's browser feature probe.
+    customEnvironment: true,
+    canvas: document.createElement('canvas'),
+    banner: false,
+    audio: { noSound: true },
+    physics: { default: 'arcade', arcade: { debug: false } },
+    render: { pixelArt: true, antialias: false },
+    scene: [VerdantPathScene],
+  });
+  // Do NOT call game.boot()/game.texturesReady() manually: under Vitest's
+  // jsdom environment (pretendToBeVisual gives real requestAnimationFrame)
+  // Phaser's own DOMContentLoaded -> boot -> TextureManager READY -> start()
+  // chain completes on its own, and manual invocation double-fires Game.start
+  // which wedges the SceneManager queue. Just wait for the scene to reach
+  // its create() lifecycle.
+  return waitForScene(game, SCENE_KEY).then(async (game0) => {
+    // Phaser creates TextureManager#stamp lazily on SYSTEM_READY by
+    // instantiating an ImageGameObject inside the internal system scene. Under
+    // node-canvas that leaves stamp undefined, so every subsequent
+    // game.destroy() throws inside TextureManager.destroy and the game never
+    // finishes tearing down. Stub it — these tests use no DynamicTextures.
+    if (!game0.textures.stamp) {
+      game0.textures.stamp = { destroy: () => {} };
     }
-    const timeout = setTimeout(() => reject(new Error('Phaser scene did not boot within 15s')), 15000);
-    // jsdom never fires Phaser's DOM-ready hook. Boot manually in this
-    // isolated harness, then use Phaser's normal texture-ready transition to
-    // start the real Scene#create lifecycle.
-    try {
-      if (!game.isBooted) game.boot();
-      game.texturesReady();
-      clearTimeout(timeout);
-      resolve(game);
-    } catch (error) {
-      clearTimeout(timeout);
-      reject(error);
-    }
+    return game0;
   });
 }
 
-const destroyGame = (game) => new Promise((resolve) => {
-  game.destroy(true, false);
-  const check = () => (game.isDestroyed || !game.isBooted ? resolve() : setTimeout(check, 50));
-  check();
-});
+function waitForScene(game, key) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + 15000;
+    const check = () => {
+      const scene = game.scene.getScene(key);
+      if (scene && scene.sys.settings.status >= Phaser.Scenes.RUNNING && scene.player) {
+        resolve(game);
+        return;
+      }
+      if (Date.now() > deadline) {
+        reject(new Error(`Phaser scene did not boot within 15s (status=${scene && scene.sys.settings.status})`));
+        return;
+      }
+      setTimeout(check, 25);
+    };
+    check();
+  });
+}
 
+// Game.runDestroy() does not set isDestroyed or clear isBooted, so polling
+// those flags would hang forever. destroy() just marks pendingDestroy; the
+// next RAF-driven frame runs runDestroy() (tearing down scenes, renderer and
+// the loop), so a short yield is a sufficient teardown.
+const destroyGame = async (game) => {
+  game.destroy(true, false);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+};
+
+describe('VerdantPathScene boot smoke', () => {
   it('boots create() without throwing and builds world sprites', async () => {
     const game = await bootGame();
     try {
