@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 const pendingOffer = {
   id: 'trade-1',
@@ -59,14 +60,14 @@ describe('Trading Worker API', () => {
 
     const response = await app.request('/api/trades', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('player-1')) },
       body: JSON.stringify({
         user_id: 'player-1',
         to_user_id: 'player-2',
         offered_caught_id: 'caught-1',
         requested_caught_id: 'caught-3',
       }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual(pendingOffer);
@@ -121,14 +122,14 @@ describe('Trading Worker API', () => {
 
     const response = await app.request('/api/trades', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('player-1')) },
       body: JSON.stringify({
         user_id: 'player-1',
         to_user_id: 'player-2',
         offered_caught_id: 'caught-1',
         requested_caught_id: 'caught-3',
       }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -148,9 +149,9 @@ describe('Trading Worker API', () => {
 
     const response = await app.request('/api/trades/trade-1/accept', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('player-2')) },
       body: JSON.stringify({ user_id: 'player-2' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -185,9 +186,9 @@ describe('Trading Worker API', () => {
 
     const response = await app.request('/api/trades/trade-1/cancel', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('player-1')) },
       body: JSON.stringify({ user_id: 'player-1' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -207,9 +208,9 @@ describe('Trading Worker API', () => {
 
     const response = await app.request('/api/trades/trade-1/decline', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('player-2')) },
       body: JSON.stringify({ user_id: 'player-2' }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

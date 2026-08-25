@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 function createDbMock({
   queueRows = [],
@@ -109,9 +110,9 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/queue', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', team_power: 80 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -158,9 +159,9 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/queue', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', team_power: 80 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -176,7 +177,8 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/queue?user_id=user-1', {
       method: 'DELETE',
-    }, { DB: db });
+      headers: await sessionAuthHeader('user-1'),
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ queued: false });
@@ -203,14 +205,14 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/matches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({
         user_id: 'user-1',
         opponent_user_id: 'opponent-1',
         player_team: [{ pokemon_id: 'p1', currentHP: 12 }],
         opponent_team: [{ pokemon_id: 'o1', currentHP: 0 }],
       }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -260,14 +262,14 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/matches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({
         user_id: 'user-1',
         opponent_user_id: 'opponent-1',
         player_team: [{ pokemon_id: 'p1', currentHP: 12 }],
         opponent_team: [{ pokemon_id: 'o1', currentHP: 0 }],
       }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
@@ -303,14 +305,14 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/matches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({
         user_id: 'user-1',
         opponent_user_id: 'opponent-1',
         player_team: [{ pokemon_id: 'p1', currentHP: 12 }],
         opponent_team: [{ pokemon_id: 'o1', currentHP: 0 }],
       }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
@@ -344,7 +346,7 @@ describe('PvP Worker API', () => {
 
     const response = await app.request('/api/pvp/matches?user_id=user-1&limit=3', {
       method: 'GET',
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ matches: matchRows });

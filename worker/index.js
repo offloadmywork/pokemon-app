@@ -756,18 +756,20 @@ app.get('/api/trades', async (c) => {
   }
 });
 
-app.post('/api/trades', async (c) => {
+app.post('/api/trades', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
+    const data = await c.req.json().catch(() => ({}));
     const {
-      user_id,
+      // The offerer is the session-verified trainer; only the counterparty
+      // stays request-supplied.
       to_user_id,
       offered_caught_id,
       requested_caught_id,
     } = data;
+    const user_id = c.get('sessionUserId');
 
-    if (!user_id || !to_user_id || !offered_caught_id || !requested_caught_id) {
-      return c.json({ error: 'user_id, to_user_id, offered_caught_id, and requested_caught_id are required' }, 400);
+    if (!to_user_id || !offered_caught_id || !requested_caught_id) {
+      return c.json({ error: 'to_user_id, offered_caught_id, and requested_caught_id are required' }, 400);
     }
 
     await ensureUserExists(c.env.DB, user_id);
@@ -790,15 +792,11 @@ app.post('/api/trades', async (c) => {
   }
 });
 
-app.post('/api/trades/:id/accept', async (c) => {
+app.post('/api/trades/:id/accept', requireSession, async (c) => {
   try {
     const tradeId = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    // Only the session-verified trainer can accept their trades.
+    const user_id = c.get('sessionUserId');
 
     await ensureUserExists(c.env.DB, user_id);
 
@@ -818,15 +816,11 @@ app.post('/api/trades/:id/accept', async (c) => {
   }
 });
 
-app.post('/api/trades/:id/cancel', async (c) => {
+app.post('/api/trades/:id/cancel', requireSession, async (c) => {
   try {
     const tradeId = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    // Only the session-verified trainer can cancel their trades.
+    const user_id = c.get('sessionUserId');
 
     await ensureUserExists(c.env.DB, user_id);
 
@@ -846,15 +840,11 @@ app.post('/api/trades/:id/cancel', async (c) => {
   }
 });
 
-app.post('/api/trades/:id/decline', async (c) => {
+app.post('/api/trades/:id/decline', requireSession, async (c) => {
   try {
     const tradeId = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    // Only the session-verified trainer can decline their trades.
+    const user_id = c.get('sessionUserId');
 
     await ensureUserExists(c.env.DB, user_id);
 
@@ -2062,14 +2052,12 @@ app.get('/api/leaderboards', async (c) => {
 // ================================================
 
 // ===== CO-OP RAID API =====
-app.post('/api/coop-raids', async (c) => {
+app.post('/api/coop-raids', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, team_power, level = 1 } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    const data = await c.req.json().catch(() => ({}));
+    const { team_power, level = 1 } = data;
+    // The raid host is the session-verified trainer.
+    const user_id = c.get('sessionUserId');
 
     const teamPower = Number(team_power);
     if (!Number.isFinite(teamPower) || teamPower <= 0) {
@@ -2090,15 +2078,13 @@ app.post('/api/coop-raids', async (c) => {
   }
 });
 
-app.post('/api/coop-raids/:id/join', async (c) => {
+app.post('/api/coop-raids/:id/join', requireSession, async (c) => {
   try {
     const raidId = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id, team_power } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    const data = await c.req.json().catch(() => ({}));
+    const { team_power } = data;
+    // Raid participants join under their session-verified identity.
+    const user_id = c.get('sessionUserId');
 
     const teamPower = Number(team_power);
     if (!Number.isFinite(teamPower) || teamPower <= 0) {
@@ -2122,15 +2108,13 @@ app.post('/api/coop-raids/:id/join', async (c) => {
   }
 });
 
-app.post('/api/coop-raids/:id/attack', async (c) => {
+app.post('/api/coop-raids/:id/attack', requireSession, async (c) => {
   try {
     const raidId = c.req.param('id');
-    const data = await c.req.json();
-    const { user_id, damage_dealt } = data;
-
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    const data = await c.req.json().catch(() => ({}));
+    const { damage_dealt } = data;
+    // Attacks are attributed to the session-verified participant.
+    const user_id = c.get('sessionUserId');
 
     const damageDealt = Number(damage_dealt);
     if (!Number.isFinite(damageDealt) || damageDealt <= 0) {
@@ -2189,14 +2173,13 @@ app.post('/api/coop-raids/:id/attack', async (c) => {
 // ========================
 
 // ===== PVP API =====
-app.post('/api/pvp/queue', async (c) => {
+app.post('/api/pvp/queue', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, team_power } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const { team_power } = data;
+    // Queue entries belong to the session-verified trainer.
+    const user_id = c.get('sessionUserId');
 
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
 
     const teamPower = Number(team_power);
     if (!Number.isFinite(teamPower) || teamPower <= 0) {
@@ -2232,12 +2215,10 @@ app.post('/api/pvp/queue', async (c) => {
   }
 });
 
-app.delete('/api/pvp/queue', async (c) => {
+app.delete('/api/pvp/queue', requireSession, async (c) => {
   try {
-    const user_id = c.req.query('user_id');
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
+    // Leave the queue as the session-verified trainer.
+    const user_id = c.get('sessionUserId');
 
     await leavePvpQueue(c.env.DB, user_id);
     return c.json({ queued: false });
@@ -2261,14 +2242,14 @@ app.get('/api/pvp/matches', async (c) => {
   }
 });
 
-app.post('/api/pvp/matches', async (c) => {
+app.post('/api/pvp/matches', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { user_id, opponent_user_id, player_team = [], opponent_team = [] } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const { opponent_user_id, player_team = [], opponent_team = [] } = data;
+    // Match rewards go to the session-verified player; the opponent stays
+    // request-supplied.
+    const user_id = c.get('sessionUserId');
 
-    if (!user_id) {
-      return c.json({ error: 'user_id is required' }, 400);
-    }
     if (!opponent_user_id) {
       return c.json({ error: 'opponent_user_id is required' }, 400);
     }

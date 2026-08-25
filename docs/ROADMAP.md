@@ -559,8 +559,10 @@
 - ✅ Session enforcement extended to the full economy surface (2026-08-26): shop purchase, upgrade purchase, cosmetics purchase/equip, achievements claim, mastery claim, and challenge tower completion all require a session and take the acting user from the signed token — BDD tests cover no-token 401s, tampered tokens, and body-`user_id` spoofing being ignored
 - ✅ Session enforcement batch 3 (2026-08-26): captures (`POST /api/caught`), releases (`DELETE /api/caught/:id` — now owner-scoped, previously deletable by id alone), nicknames (`PATCH /api/caught/:id` — now owner-scoped), and starter claims all bind to the session-verified trainer; BDD-covered
 - ✅ Session enforcement batch 4 (2026-08-26): player progress writes and battle-team saves/removals bind to the session-verified trainer (legacy anonymous single-row progress path retired); BDD-covered
+- ✅ Session enforcement final batch (2026-08-26): trades (create/accept/cancel/decline), co-op raids (host/join/attack), and PvP (queue/leave/match-record) take the acting user from the signed token; counterparties stay request-supplied — BDD-covered via domain-module mocks asserting token-bound identity
+- ✅ Phase 4 quality-gate finding "server-bound identity/integrity" closed: all reward-granting and state-mutating routes now derive the acting user from a server-signed session
 - ✅ API client mints a session token during registration/restore and attaches `Authorization: Bearer` automatically (best-effort mint, token cleared on identity switch)
-- Remaining unauthenticated mutations (final batch): PvP queue/matches, trades, co-op raids — the acting user will come from the token; counterparties stay request-supplied
+- Remaining unauthenticated: read-only routes (roster, wallet, history) — intentional for now; revisit if read-scoping becomes a product requirement
 - ⚠️ Ops requirement: set `SESSION_SECRET` (`wrangler secret put SESSION_SECRET`; `.dev.vars` locally) before deploying — without it, protected routes return 401/503 by design
 
 ### Next (judge-ranked)

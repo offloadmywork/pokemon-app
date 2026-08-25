@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import app from './index';
+import { sessionAuthHeader, sessionEnv } from './testSessionAuth';
 
 function createDbMock({
   raidRows = [],
@@ -47,9 +48,9 @@ describe('Co-op raid Worker API', () => {
 
     const response = await app.request('/api/coop-raids', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', team_power: 75, level: 1 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(201);
     const payload = await response.json();
@@ -104,9 +105,9 @@ describe('Co-op raid Worker API', () => {
 
     const response = await app.request('/api/coop-raids/raid-1/join', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-2')) },
       body: JSON.stringify({ user_id: 'user-2', team_power: 60 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -142,9 +143,9 @@ describe('Co-op raid Worker API', () => {
 
     const response = await app.request('/api/coop-raids/raid-1/attack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', damage_dealt: 90 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -194,9 +195,9 @@ describe('Co-op raid Worker API', () => {
 
     const response = await app.request('/api/coop-raids/raid-1/attack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', damage_dealt: 100 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
@@ -260,9 +261,9 @@ describe('Co-op raid Worker API', () => {
 
     const response = await app.request('/api/coop-raids/raid-1/attack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await sessionAuthHeader('user-1')) },
       body: JSON.stringify({ user_id: 'user-1', damage_dealt: 90 }),
-    }, { DB: db });
+    }, sessionEnv(db));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
