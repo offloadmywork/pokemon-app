@@ -912,40 +912,29 @@ app.get('/api/player/progress', async (c) => {
 });
 
 // Update player progress (XP, level)
-app.post('/api/player/progress', async (c) => {
+app.post('/api/player/progress', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { xp = 0, level = 1, user_id = null } = data;
+    const data = await c.req.json().catch(() => ({}));
+    const { xp = 0, level = 1 } = data;
+    // Progress always belongs to the session-verified trainer.
+    const user_id = c.get('sessionUserId');
 
-    if (user_id) {
-      // User-specific progress
-      // Check if exists
-      const { results: existing } = await c.env.DB.prepare(
-        'SELECT id FROM player_progress WHERE user_id = ?'
-      ).bind(user_id).all();
+    // Check if exists
+    const { results: existing } = await c.env.DB.prepare(
+      'SELECT id FROM player_progress WHERE user_id = ?'
+    ).bind(user_id).all();
 
-      if (existing.length > 0) {
-        // Update existing
-        await c.env.DB.prepare(
-          `UPDATE player_progress SET xp = ?, level = ?, updated_at = datetime('now') WHERE user_id = ?`
-        ).bind(xp, level, user_id).run();
-      } else {
-        // Insert new (id is INTEGER PRIMARY KEY — auto-assigned)
-        await c.env.DB.prepare(
-          `INSERT INTO player_progress (user_id, xp, level, updated_at)
-           VALUES (?, ?, ?, datetime('now'))`
-        ).bind(user_id, xp, level).run();
-      }
-    } else {
-      // Legacy: Upsert progress (single row table with id=1)
+    if (existing.length > 0) {
+      // Update existing
       await c.env.DB.prepare(
-        `INSERT INTO player_progress (id, xp, level, updated_at)
-         VALUES (1, ?, ?, datetime('now'))
-         ON CONFLICT(id) DO UPDATE SET
-           xp = excluded.xp,
-           level = excluded.level,
-           updated_at = datetime('now')`
-      ).bind(xp, level).run();
+        `UPDATE player_progress SET xp = ?, level = ?, updated_at = datetime('now') WHERE user_id = ?`
+      ).bind(xp, level, user_id).run();
+    } else {
+      // Insert new (id is INTEGER PRIMARY KEY — auto-assigned)
+      await c.env.DB.prepare(
+        `INSERT INTO player_progress (user_id, xp, level, updated_at)
+         VALUES (?, ?, ?, datetime('now'))`
+      ).bind(user_id, xp, level).run();
     }
 
     return c.json({ xp, level });
@@ -1378,26 +1367,18 @@ app.get('/api/team', async (c) => {
 });
 
 // Set user's battle team (replaces entire team)
-app.post('/api/team', async (c) => {
+app.post('/api/team', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const { team: teamData, user_id = null } = data;
-    
+    const data = await c.req.json().catch(() => ({}));
+    const { team: teamData } = data;
+    // The team belongs to the session-verified trainer.
+    const user_id = c.get('sessionUserId');
+
     // Use teamData if provided, otherwise treat entire body as team array (backward compatibility)
     const actualTeamData = teamData || data;
-    
+
     // Clear existing team for this user
-    let deleteQuery = 'DELETE FROM team';
-    const deleteParams = [];
-    
-    if (user_id) {
-      deleteQuery += ' WHERE user_id = ?';
-      deleteParams.push(user_id);
-    } else {
-      deleteQuery += ' WHERE user_id IS NULL';
-    }
-    
-    await c.env.DB.prepare(deleteQuery).bind(...deleteParams).run();
+    await c.env.DB.prepare('DELETE FROM team WHERE user_id = ?').bind(user_id).run();
     
     // Insert new team members
     for (let i = 0; i < actualTeamData.length && i < 3; i++) {
@@ -1423,23 +1404,11 @@ app.post('/api/team', async (c) => {
     }
     
     // Return updated team
-    let selectQuery = 'SELECT * FROM team';
-    const selectParams = [];
-    
-    if (user_id) {
-      selectQuery += ' WHERE user_id = ?';
-      selectParams.push(user_id);
-    } else {
-      selectQuery += ' WHERE user_id IS NULL';
-    }
-    
-    selectQuery += ' ORDER BY position ASC';
-    
-    const { results } = await c.env.DB.prepare(selectQuery).bind(...selectParams).all();
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM team WHERE user_id = ? ORDER BY position ASC'
+    ).bind(user_id).all();
 
-    if (user_id) {
-      await incrementDailyQuestsForEvent(c.env.DB, user_id, 'healTeam', 1);
-    }
+    await incrementDailyQuestsForEvent(c.env.DB, user_id, 'healTeam', 1);
     
     return c.json(results);
   } catch (error) {
@@ -1510,22 +1479,14 @@ app.patch('/api/team/:pokemonId', async (c) => {
 });
 
 // Remove from team
-app.delete('/api/team/:pokemonId', async (c) => {
+app.delete('/api/team/:pokemonId', requireSession, async (c) => {
   try {
     const pokemonId = c.req.param('pokemonId');
-    const user_id = c.req.query('user_id');
-    
-    let deleteQuery = 'DELETE FROM team WHERE pokemon_id = ?';
-    const params = [pokemonId];
-    
-    if (user_id) {
-      deleteQuery += ' AND user_id = ?';
-      params.push(user_id);
-    } else {
-      deleteQuery += ' AND user_id IS NULL';
-    }
-    
-    await c.env.DB.prepare(deleteQuery).bind(...params).run();
+    const user_id = c.get('sessionUserId');
+
+    await c.env.DB.prepare(
+      'DELETE FROM team WHERE pokemon_id = ? AND user_id = ?'
+    ).bind(pokemonId, user_id).run();
     
     return c.json({ success: true });
   } catch (error) {

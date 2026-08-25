@@ -558,8 +558,9 @@
 - ✅ Daily quest claim routes (`/api/daily-quests/:id/claim`, `/claim-all` + aliases) now require a session and ignore body-supplied `user_id` — spoofed claim requests get 401 and cannot claim another player's rewards (route tests cover tampered/expired tokens and cross-user spoofs)
 - ✅ Session enforcement extended to the full economy surface (2026-08-26): shop purchase, upgrade purchase, cosmetics purchase/equip, achievements claim, mastery claim, and challenge tower completion all require a session and take the acting user from the signed token — BDD tests cover no-token 401s, tampered tokens, and body-`user_id` spoofing being ignored
 - ✅ Session enforcement batch 3 (2026-08-26): captures (`POST /api/caught`), releases (`DELETE /api/caught/:id` — now owner-scoped, previously deletable by id alone), nicknames (`PATCH /api/caught/:id` — now owner-scoped), and starter claims all bind to the session-verified trainer; BDD-covered
+- ✅ Session enforcement batch 4 (2026-08-26): player progress writes and battle-team saves/removals bind to the session-verified trainer (legacy anonymous single-row progress path retired); BDD-covered
 - ✅ API client mints a session token during registration/restore and attaches `Authorization: Bearer` automatically (best-effort mint, token cleared on identity switch)
-- Remaining unauthenticated mutations (later batch): PvP queue/matches, trades, co-op raids, team writes, catches, progress — these carry multi-user or gameplay-event semantics and need per-route review
+- Remaining unauthenticated mutations (final batch): PvP queue/matches, trades, co-op raids — the acting user will come from the token; counterparties stay request-supplied
 - ⚠️ Ops requirement: set `SESSION_SECRET` (`wrangler secret put SESSION_SECRET`; `.dev.vars` locally) before deploying — without it, protected routes return 401/503 by design
 
 ### Next (judge-ranked)
