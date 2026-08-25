@@ -573,14 +573,14 @@ app.get('/api/caught', async (c) => {
 });
 
 // Catch a Pokemon
-app.post('/api/caught', async (c) => {
+app.post('/api/caught', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
+    const data = await c.req.json().catch(() => ({}));
     const id = uuidv4();
+    // Captures belong to the session-verified user, never the body claim.
+    const user_id = c.get('sessionUserId');
 
-    if (data.user_id) {
-      await ensureUserExists(c.env.DB, data.user_id);
-    }
+    await ensureUserExists(c.env.DB, user_id);
 
     await c.env.DB.prepare(
       `INSERT INTO caught_pokemon (id, pokemon_id, user_id, nickname) 
@@ -588,26 +588,32 @@ app.post('/api/caught', async (c) => {
     ).bind(
       id,
       data.pokemon_id,
-      data.user_id || null,
+      user_id,
       data.nickname || null
     ).run();
 
     // Progress daily quests (if they exist for today)
-    if (data.user_id) {
-      await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'catch', 1);
-      await incrementWeeklyMissionsForEvent(c.env.DB, data.user_id, 'catch', 1);
+    await incrementDailyQuestsForEvent(c.env.DB, user_id, 'catch', 1);
+    try {
+      await incrementWeeklyMissionsForEvent(c.env.DB, user_id, 'catch', 1);
+    } catch {
+      // Weekly mission progress stays best-effort for captures.
+    }
 
-      const { results: caughtPokemon } = await c.env.DB.prepare(
-        'SELECT rarity FROM pokemon WHERE id = ?'
-      ).bind(data.pokemon_id).all();
+    const { results: caughtPokemon } = await c.env.DB.prepare(
+      'SELECT rarity FROM pokemon WHERE id = ?'
+    ).bind(data.pokemon_id).all();
 
-      if (RARE_QUEST_RARITIES.has(caughtPokemon[0]?.rarity)) {
-        await incrementDailyQuestsForEvent(c.env.DB, data.user_id, 'rareCatch', 1);
-        await incrementWeeklyMissionsForEvent(c.env.DB, data.user_id, 'rareCatch', 1);
+    if (RARE_QUEST_RARITIES.has(caughtPokemon[0]?.rarity)) {
+      await incrementDailyQuestsForEvent(c.env.DB, user_id, 'rareCatch', 1);
+      try {
+        await incrementWeeklyMissionsForEvent(c.env.DB, user_id, 'rareCatch', 1);
+      } catch {
+        // best-effort
       }
     }
 
-    return c.json({ id, ...data }, 201);
+    return c.json({ id, ...data, user_id }, 201);
   } catch (error) {
     return c.json({ error: 'Something went wrong. Please try again.' }, 500);
   }
@@ -615,25 +621,17 @@ app.post('/api/caught', async (c) => {
 
 // ===== STARTER POKEMON ENDPOINT =====
 // Claim starter Pokemon (for new users)
-app.post('/api/starter/claim', async (c) => {
+app.post('/api/starter/claim', requireSession, async (c) => {
   try {
-    const data = await c.req.json();
-    const user_id = data.user_id || null;
+    await c.req.json().catch(() => ({}));
+    // Starters are claimed into the session-verified trainer's roster.
+    const user_id = c.get('sessionUserId');
 
-    if (user_id) {
-      await ensureUserExists(c.env.DB, user_id);
-    }
-    
+    await ensureUserExists(c.env.DB, user_id);
+
     // Check if user already has Pokemon
-    let countQuery = 'SELECT COUNT(*) as count FROM caught_pokemon';
-    const countParams = [];
-    
-    if (user_id) {
-      countQuery += ' WHERE user_id = ?';
-      countParams.push(user_id);
-    } else {
-      countQuery += ' WHERE user_id IS NULL';
-    }
+    const countQuery = 'SELECT COUNT(*) as count FROM caught_pokemon WHERE user_id = ?';
+    const countParams = [user_id];
     
     const { results: existing } = await c.env.DB.prepare(countQuery).bind(...countParams).all();
     
@@ -702,16 +700,19 @@ app.post('/api/starter/claim', async (c) => {
 // ====================================
 
 // Update a caught Pokemon (for nicknames)
-app.patch('/api/caught/:id', async (c) => {
+app.patch('/api/caught/:id', requireSession, async (c) => {
   try {
     const id = c.req.param('id');
-    const data = await c.req.json();
-    
+    const data = await c.req.json().catch(() => ({}));
+    const user_id = c.get('sessionUserId');
+
+    // Only the session-verified owner can rename their Pokemon.
     await c.env.DB.prepare(
-      'UPDATE caught_pokemon SET nickname = ? WHERE id = ?'
+      'UPDATE caught_pokemon SET nickname = ? WHERE id = ? AND user_id = ?'
     ).bind(
       data.nickname || null,
-      id
+      id,
+      user_id
     ).run();
     
     return c.json({ success: true });
@@ -721,13 +722,15 @@ app.patch('/api/caught/:id', async (c) => {
 });
 
 // Release a caught Pokemon
-app.delete('/api/caught/:id', async (c) => {
+app.delete('/api/caught/:id', requireSession, async (c) => {
   try {
     const id = c.req.param('id');
-    
+    const user_id = c.get('sessionUserId');
+
+    // Scope the release to the session-verified owner.
     await c.env.DB.prepare(
-      'DELETE FROM caught_pokemon WHERE id = ?'
-    ).bind(id).run();
+      'DELETE FROM caught_pokemon WHERE id = ? AND user_id = ?'
+    ).bind(id, user_id).run();
     
     return c.json({ success: true });
   } catch (error) {
