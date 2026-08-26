@@ -583,3 +583,4 @@
 - **Decision: enhanced procedural art now** (fits budget, perfect license safety, preserves the judged-cohesive look). CC0 packs revisited only if a separate asset budget is approved; AI sprites deprioritized (consistency/effort ratio at 32px).
 - ✅ First step shipped: two-frame hero walk cycle (bobbed step frames stamped from base frames, swapped on movement clock).
 - Next procedural upgrades: ~~all four shipped~~ ✅ (tree sway, boss pulse, grass rustle, ground dithering). Procedural art path complete — next quality jump requires an asset-budget decision.
+- 📋 Decision brief prepared for Netanel: `docs/ART-BUDGET-BRIEF.md` (options A/B/C, budget impact, recommendation: CC0 pack with +150 KB deferred-engine raise, creatures first).
