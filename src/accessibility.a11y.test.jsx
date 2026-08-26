@@ -85,4 +85,84 @@ describe('Accessibility audit (axe-core)', () => {
       await screen.findByText('100 coins');
     });
   });
+
+  it('CollectionMasteryPanel has no serious or critical violations', async () => {
+    const CollectionMasteryPanel = (await import('./components/CollectionMasteryPanel')).default;
+    const apiClient = {
+      getMasteryStatus: vi.fn().mockResolvedValue({
+        caught_count: 12,
+        current_tier: { id: 'silver', title: 'Silver Curator' },
+        tiers: [
+          { id: 'bronze', title: 'Bronze Collector', description: 'Every trainer starts here.', target: 0, claimed: true, claimable: false },
+          { id: 'silver', title: 'Silver Curator', description: 'Catch 10 unique Pokémon.', target: 10, claimed: false, claimable: true },
+          { id: 'gold', title: 'Gold Archivist', description: 'Catch 25 unique Pokémon.', target: 25, claimed: false, claimable: false },
+          { id: 'master', title: 'Master Pokédex', description: 'Catch all 50 seeded Pokémon.', target: 50, claimed: false, claimable: false },
+        ],
+        unclaimed_rewards: [{ id: 'silver' }],
+      }),
+      claimMasteryTier: vi.fn(),
+    };
+
+    await expectAccessible(<CollectionMasteryPanel apiClient={apiClient} />, async () => {
+      await screen.findByText(/12 unique Pokémon caught/);
+    });
+  });
+
+  it('AchievementsPanel has no serious or critical violations', async () => {
+    const AchievementsPanel = (await import('./components/AchievementsPanel')).default;
+    const apiClient = {
+      getAchievements: vi.fn().mockResolvedValue({
+        user_id: 'user-1',
+        progress: { collection: 26 },
+        achievements: [
+          {
+            achievement_id: 'collect_10',
+            title: 'First Box Filled',
+            description: 'Catch 10 unique Pokemon.',
+            category: 'collection',
+            target: 10,
+            progress: 26,
+            reward: { coins: 75, shards: 0 },
+            claimed: true,
+            claimable: false,
+          },
+          {
+            achievement_id: 'collect_25',
+            title: 'Growing Pokedex',
+            description: 'Catch 25 unique Pokemon.',
+            category: 'collection',
+            target: 25,
+            progress: 26,
+            reward: { coins: 150, shards: 1 },
+            claimed: false,
+            claimable: true,
+          },
+        ],
+      }),
+      claimAchievement: vi.fn(),
+    };
+
+    await expectAccessible(<AchievementsPanel apiClient={apiClient} />, async () => {
+      await screen.findByText('Growing Pokedex');
+    });
+  });
+
+  it('ChallengeTowerPanel has no serious or critical violations', async () => {
+    const ChallengeTowerPanel = (await import('./components/ChallengeTowerPanel')).default;
+    const apiClient = {
+      getChallengeTower: vi.fn().mockResolvedValue({
+        floors: [
+          { floor: 1, name: 'Sprout Steps', difficulty: 1, reward_xp: 15 },
+          { floor: 2, name: 'Ember Rise', difficulty: 2, reward_xp: 25 },
+        ],
+        progress: { current_floor: 1, best_floor: 0, last_completed_floor: 0 },
+        current_floor: { floor: 1, name: 'Sprout Steps', difficulty: 1, reward_xp: 15 },
+      }),
+      completeChallengeTowerFloor: vi.fn(),
+    };
+
+    await expectAccessible(<ChallengeTowerPanel apiClient={apiClient} />, async () => {
+      await screen.findAllByText('Floor 1: Sprout Steps');
+    });
+  });
 });
