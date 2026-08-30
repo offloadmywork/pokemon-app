@@ -17,6 +17,9 @@ export const VERDANT_PATH = Object.freeze({
   // clearing, and the reward cache behind it only opens once the warden falls.
   bossArena: Object.freeze({ x: 22, y: 3, width: 5, height: 4 }),
   rewardCache: Object.freeze({ x: 24, y: 2 }),
+  // A readable first interaction near the spawn route. It teaches direction
+  // without adding another objective or interrupting exploration.
+  signpost: Object.freeze({ x: 5, y: 16 }),
 });
 
 /**
@@ -52,7 +55,8 @@ export function getVerdantGuidanceStep(fromX, fromY, objective) {
  * caller confirms the boss is defeated.
  */
 export function getVerdantTileEvent(x, y, { bossDefeated = false } = {}, zone = VERDANT_PATH) {
-  const { bossArena, rewardCache } = zone;
+  const { bossArena, rewardCache, signpost } = zone;
+  if (x === signpost.x && y === signpost.y) return 'signpost';
   if (x >= rewardCache.x && x < rewardCache.x + 1 && y >= rewardCache.y && y < rewardCache.y + 1) {
     return bossDefeated ? 'reward' : null;
   }

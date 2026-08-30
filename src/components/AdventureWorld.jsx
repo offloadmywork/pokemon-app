@@ -49,6 +49,7 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
       try { localStorage.setItem('verdant-cache-opened', '1'); } catch { /* private mode */ }
     };
     const handleObjective = (label) => setObjective(label);
+    const handleSignpost = (message) => setEncounterNotice(message);
     game.registry.events.on('verdant-encounter', handleEncounter);
     game.registry.set('verdant-boss-defeated', Boolean(wardenDefeated));
     let cacheOpened = false;
@@ -57,12 +58,14 @@ export default function AdventureWorld({ onNavigate, onEncounter, wardenDefeated
     game.registry.events.on('verdant-boss', handleBoss);
     game.registry.events.on('verdant-reward', handleReward);
     game.registry.events.on('verdant-objective', handleObjective);
+    game.registry.events.on('verdant-signpost', handleSignpost);
     gameRef.current = game;
     return () => {
       game.registry.events.off('verdant-encounter', handleEncounter);
       game.registry.events.off('verdant-boss', handleBoss);
       game.registry.events.off('verdant-reward', handleReward);
       game.registry.events.off('verdant-objective', handleObjective);
+      game.registry.events.off('verdant-signpost', handleSignpost);
       game.destroy(true);
       gameRef.current = null;
     };

@@ -117,6 +117,12 @@ export default class VerdantPathScene extends Phaser.Scene {
     paint('water', (g) => { g.fillStyle(PAL.waterDeep).fillRect(0, 0, TILE, TILE); g.lineStyle(1, PAL.waterLine, 0.65); for (let y = 5; y < TILE; y += 8) g.lineBetween(3, y, 12, y - 2).lineBetween(18, y, 28, y - 2); });
     paint('water-1', (g) => { g.fillStyle(PAL.waterMid).fillRect(0, 0, TILE, TILE); g.lineStyle(1, PAL.waterLineBright, 0.7); for (let y = 7; y < TILE; y += 8) g.lineBetween(5, y, 14, y - 2).lineBetween(20, y + 1, 29, y - 1); });
     paint('stone', (g) => { g.fillStyle(PAL.stone).fillRoundedRect(3, 4, 26, 24, 5); g.lineStyle(2, PAL.stoneLight, 0.6).strokeRoundedRect(3, 4, 26, 24, 5); });
+    paint('signpost', (g) => {
+      g.fillStyle(PAL.wood).fillRect(14, 12, 4, 18);
+      g.fillStyle(PAL.woodLid).fillRoundedRect(3, 4, 26, 12, 2);
+      g.lineStyle(1, PAL.ink, 0.9).strokeRoundedRect(3, 4, 26, 12, 2);
+      g.fillStyle(PAL.goldPale).fillTriangle(21, 10, 13, 7, 13, 13);
+    });
     const hero = (dir) => (g) => {
       const back = dir === 'up';
       const side = dir === 'left' || dir === 'right';
@@ -271,6 +277,9 @@ export default class VerdantPathScene extends Phaser.Scene {
       this.add.image(landmark.x * TILE + TILE / 2, landmark.y * TILE + TILE / 2, landmark.label === 'Moonwell' ? 'moonwell' : 'stone').setDepth(3);
       this.add.text(landmark.x * TILE - 17, landmark.y * TILE - 18, landmark.label, { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#fff5ca', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
     }
+    const { signpost } = VERDANT_PATH;
+    this.add.image(signpost.x * TILE + TILE / 2, signpost.y * TILE + TILE / 2, 'signpost').setDepth(3);
+    this.add.text(signpost.x * TILE - 16, signpost.y * TILE - 18, 'Trail sign', { fontFamily: 'Georgia, serif', fontSize: '9px', color: '#fff5ca', stroke: '#1b2a1c', strokeThickness: 3 }).setDepth(4);
     const bossX = VERDANT_PATH.bossArena.x + 2;
     const bossY = VERDANT_PATH.bossArena.y + 1;
     // Reduced-motion players get calm feedback: no shake, flash, or idle tweens.
@@ -398,6 +407,10 @@ export default class VerdantPathScene extends Phaser.Scene {
         playSfx('boss-roar');
         vibrate([60, 40, 90]);
         this.registry.events.emit('verdant-boss');
+      } else if (tileEvent === 'signpost' && !this.signpostRead) {
+        this.signpostRead = true;
+        playSfx('footstep');
+        this.registry.events.emit('verdant-signpost', 'Moonwell east — cross the old stone bridge.');
       } else if (tileEvent === 'reward' && !this.cacheOpened) {
         // The cache opens exactly once — no farming potions by idling on it.
         this.cacheSprite.setTexture('cache-open');

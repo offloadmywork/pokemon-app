@@ -529,6 +529,7 @@
 - ✅ Authored pacing now guides the run: a single zone objective (warden → cache → peace) is announced in the HUD, and an in-world guide arrow above the player points one cardinal step toward it — all driven by deterministic, unit-tested world rules.
 - ✅ First art pass: the meadow now uses four handcrafted ground variants (flower meadow, pebbled clearing, shaded patches, grass tufts) placed by a deterministic tile hash, plus authored tree canopies softening the world edge — no flat single-color tiles.
 - ✅ Character pass: the hero now has four directional sprites (front/back/side with readable details — eyes, rosy cheek, cloak trail, satchel on the back view), keeps the last facing when idle (unit-tested rule), and bobs gently while walking. Stream water shimmers between two authored frames.
+- ✅ First-route interaction (2026-08-30): a handcrafted signpost beside the spawn route emits a one-time, accessible direction hint toward the moonwell and bridge. Its tile event is deterministic and BDD-covered; it does not replace the current objective.
 ### Independent Judge R2 (2026-08-24): CONDITIONAL — top defects fixed same-day
 - ✅ Boss gate closes after victory (rule-tested); defeated warden hides and its tween stops.
 - ✅ Engine no longer remounts on App re-renders (ref-based callback bridge).
@@ -577,6 +578,11 @@
 - ✅ Automated evidence: Verdant Path rules + live Phaser boot smoke are green; production build is green and the deferred engine remains within its package budget.
 - ✅ Accessibility/motion: encounter grace is logic-only and preserves the existing reduced-motion path.
 - ⏳ Manual desktop/mobile world playthrough and a fresh independent review remain required; the managed browser cannot reach the local preview in this environment.
+
+### Quality Gate (2026-08-30): **CONDITIONAL**
+- ✅ Automated evidence: 964 tests pass; the production build passes with the deferred Phaser chunk at 345.58 KB gzip (under its 350 KB budget); signpost interaction and objective preservation are BDD-covered.
+- ✅ Accessibility/motion: the interaction reports via the existing world status region and adds no motion.
+- ⏳ Manual desktop/mobile world playthrough and independent review remain required before a Pass verdict.
 
 ### Next milestone: production art pipeline — DECIDED (2026-08-24)
 - Evaluated CC0 packs / AI-generated sprites / enhanced procedural against the 358KB deferred-engine budget (~14KB headroom) and license constraints.

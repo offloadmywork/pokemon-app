@@ -50,6 +50,12 @@ describe('Verdant Path boss gate', () => {
 });
 
 describe('Verdant Path authored pacing', () => {
+  it('lets a newly-arrived trainer read the signpost without changing the main objective', () => {
+    const { signpost } = VERDANT_PATH;
+    expect(getVerdantTileEvent(signpost.x, signpost.y)).toBe('signpost');
+    expect(getVerdantObjective({}).label).toMatch(/Warden/);
+  });
+
   it('guides players through warden first, cache second, peace last', () => {
     expect(getVerdantObjective({}).label).toMatch(/Warden/);
     expect(getVerdantObjective({ bossDefeated: true }).label).toMatch(/cache/);
